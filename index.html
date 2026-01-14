@@ -157,7 +157,7 @@
                     window.analyzeAndPrepareData(); 
                 } else {
                     const container = document.getElementById('process-list');
-                    container.innerHTML = `<div class="text-center py-20 text-slate-400 font-bold text-xl bg-white rounded-3xl border-2 border-dashed">해당 날짜(${dateStr})에 배포된 정보가 없습니다.</div>`;
+                    container.innerHTML = `<div class="text-center py-16 text-slate-400 font-bold text-lg bg-white rounded-2xl border-2 border-dashed mx-2">해당 날짜(${dateStr})에 배포된 정보가 없습니다.</div>`;
                 }
             }, (err) => {
                 toggleLoading(false);
@@ -170,120 +170,130 @@
     </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800;900&display=swap');
+        
         body { font-family: 'Pretendard', sans-serif; background-color: #f1f5f9; color: #0f172a; letter-spacing: -0.05em; overflow-x: hidden; margin: 0; }
-        .container-full { width: 100%; padding: 0 0.2rem; }
-        .scroll-container { overflow-x: auto; width: 100%; border-radius: 6px; border: 1px solid #cbd5e1; }
-        .row-content { display: inline-flex; min-width: 1650px; background: white; border-bottom: 1px solid #e2e8f0; align-items: stretch; }
-        .header-row { display: inline-flex; min-width: 1650px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
+        
+        /* 모바일 가독성 핵심: 여백 최소화 */
+        .container-full { width: 100%; padding: 0 0.25rem; }
+        .scroll-container { overflow-x: auto; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; }
+        
+        /* 가로 너비 최적화: 모바일에서 정보를 더 많이 담기 위해 소폭 축소 */
+        .row-content { display: inline-flex; min-width: 1450px; background: white; border-bottom: 1px solid #e2e8f0; align-items: stretch; }
+        .header-row { display: inline-flex; min-width: 1450px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
 
-        .w-order { width: 150px; flex-shrink: 0; }
-        .w-qty { width: 60px; flex-shrink: 0; } 
-        .w-dim { width: 450px; flex-shrink: 0; }
-        .w-mat { width: 180px; flex-shrink: 0; } 
-        .w-weight { width: 140px; flex-shrink: 0; }
-        .w-work { width: 450px; flex-shrink: 0; }
-        .w-remark { width: 220px; flex-shrink: 0; flex: 1; }
+        .w-order { width: 120px; flex-shrink: 0; }
+        .w-qty { width: 50px; flex-shrink: 0; } 
+        .w-dim { width: 380px; flex-shrink: 0; }
+        .w-mat { width: 160px; flex-shrink: 0; } 
+        .w-weight { width: 110px; flex-shrink: 0; }
+        .w-work { width: 400px; flex-shrink: 0; }
+        .w-remark { width: 230px; flex-shrink: 0; flex: 1; }
 
-        .cell { @apply flex flex-col justify-center px-2 py-1.5 border-r border-slate-100; }
-        .header-cell { @apply flex items-center justify-center px-2 py-2 font-black text-[11px] border-r border-slate-700 uppercase tracking-tighter; }
+        /* 셀 내부 패딩 축소 */
+        .cell { @apply flex flex-col justify-center px-1.5 py-1 border-r border-slate-100; }
+        .header-cell { @apply flex items-center justify-center px-1.5 py-1.5 font-black text-[10px] border-r border-slate-700 uppercase tracking-tighter; }
 
-        .val-order { font-size: 1.1rem; font-weight: 800; }
-        .val-qty { font-size: 1.6rem; font-weight: 950; color: #2563eb; text-align: center; }
-        .val-dim { font-size: 1.35rem; font-weight: 800; line-height: 1.1; }
-        .val-sn-box { @apply mt-1 px-3 py-0.5 bg-white border border-blue-500 rounded-full font-black text-[10px] text-blue-700 shadow-sm inline-block; }
-        .val-mat { font-size: 0.9rem; font-weight: 700; line-height: 1.2; }
-        .val-weight { font-size: 1.7rem; font-weight: 950; color: #ea580c; text-align: center; } 
-        .val-work { font-size: 1.15rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1.1; }
-        .val-remark { font-size: 0.9rem; font-weight: 700; color: #92400e; white-space: normal; }
+        /* 텍스트 크기 미세 조정 (한 화면에 더 많이 보이게) */
+        .val-order { font-size: 0.95rem; font-weight: 800; }
+        .val-qty { font-size: 1.4rem; font-weight: 950; color: #2563eb; text-align: center; line-height: 1; }
+        .val-dim { font-size: 1.15rem; font-weight: 800; line-height: 1.05; }
+        .val-sn-box { @apply mt-0.5 px-2 py-0 bg-white border border-blue-500 rounded-full font-black text-[9px] text-blue-700 shadow-sm inline-block; }
+        .val-mat { font-size: 0.85rem; font-weight: 700; line-height: 1.1; }
+        .val-weight { font-size: 1.5rem; font-weight: 950; color: #ea580c; text-align: center; line-height: 1; } 
+        .val-work { font-size: 1rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1.05; }
+        .val-remark { font-size: 0.85rem; font-weight: 700; color: #92400e; white-space: normal; }
 
-        .shift-banner { @apply w-full py-2 px-4 mb-1 rounded-lg flex justify-between items-center shadow-sm border-b-[8px]; }
-        .ctrl-panel { @apply bg-white p-2 rounded-xl shadow-md border border-slate-200 mb-2; }
-        #custom-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; display: none; animation: slideUp 0.3s ease-out; }
-        @keyframes slideUp { from { bottom: 0; opacity: 0; } to { bottom: 30px; opacity: 1; } }
-        ::-webkit-scrollbar { height: 10px; }
-        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; border: 2px solid #f1f5f9; }
-
+        /* 컴포넌트 간격 축소 */
+        .shift-banner { @apply w-full py-1.5 px-3 mb-0.5 rounded flex justify-between items-center shadow-sm border-b-4; }
+        .ctrl-panel { @apply bg-white p-1.5 rounded-lg shadow-sm border border-slate-200 mb-1.5; }
+        
+        #custom-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; display: none; animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { bottom: 0; opacity: 0; } to { bottom: 20px; opacity: 1; } }
+        
+        ::-webkit-scrollbar { height: 8px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        
         /* Modal Styles */
-        #qr-modal-container { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); backdrop-blur: 8px; z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px; }
-        .qr-card { background: white; padding: 1.5rem; border-radius: 2rem; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); border: 8px solid #2563eb; width: 100%; max-width: 320px; }
+        #qr-modal-container { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.92); backdrop-blur: 4px; z-index: 200; display: none; align-items: center; justify-content: center; padding: 16px; }
+        .qr-card { background: white; padding: 1.25rem; border-radius: 1.5rem; text-align: center; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5); border: 4px solid #2563eb; width: 100%; max-width: 300px; }
     </style>
 </head>
-<body class="pb-10">
+<body class="pb-6">
 
-    <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-md border-b-2 border-blue-600 px-4 py-1.5 flex justify-between items-center">
-        <h1 class="text-lg font-black italic tracking-tighter uppercase">Taewoong <span class="text-blue-500">TPMS</span></h1>
-        <div class="flex items-center gap-2">
-            <span id="sync-status" class="hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase tracking-tight italic">Waiting...</span>
-            <button onclick="toggleQRModal()" class="bg-slate-800 hover:bg-slate-700 p-1.5 rounded-lg border border-slate-700 transition-colors" title="공유 QR코드">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
+    <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-sm border-b border-blue-600 px-3 py-1 flex justify-between items-center">
+        <h1 class="text-base font-black italic tracking-tighter uppercase">Taewoong <span class="text-blue-500">TPMS</span></h1>
+        <div class="flex items-center gap-1.5">
+            <span id="sync-status" class="hidden sm:block text-[7px] font-black px-1 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase tracking-tight italic">Waiting</span>
+            <button onclick="toggleQRModal()" class="bg-slate-800 hover:bg-slate-700 p-1 rounded-md border border-slate-700 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
             </button>
-            <button onclick="shareWebsite()" class="bg-slate-800 hover:bg-slate-700 p-1.5 rounded-lg border border-slate-700 transition-colors" title="웹사이트 공유">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-400"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>
+            <button onclick="shareWebsite()" class="bg-slate-800 hover:bg-slate-700 p-1 rounded-md border border-slate-700 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-400"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>
             </button>
-            <label for="excel-upload" class="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded text-[9px] font-black cursor-pointer shadow-md transition-all uppercase tracking-tight">업로드</label>
+            <label for="excel-upload" class="bg-blue-600 hover:bg-blue-500 px-2.5 py-1 rounded text-[8px] font-black cursor-pointer shadow-sm uppercase tracking-tight">업로드</label>
             <input id="excel-upload" type="file" class="hidden" accept=".xls,.xlsx" onchange="handleExcelUpload(event)">
         </div>
     </header>
 
-    <main class="container-full mt-2">
-        <div id="welcome-state" class="bg-white rounded-2xl p-8 text-center border border-blue-100 shadow-xl mt-4 max-w-xl mx-auto">
-            <div class="text-5xl mb-3">📡</div>
-            <h2 class="text-2xl font-black text-slate-800 mb-1 italic uppercase tracking-tighter">Connecting Hub</h2>
-            <p class="text-slate-400 text-sm font-bold tracking-tighter leading-tight">서버에 연결 중입니다. 잠시만 기다려주세요.</p>
+    <main class="container-full mt-1.5">
+        <div id="welcome-state" class="bg-white rounded-xl p-6 text-center border border-blue-50 shadow-md mt-4 max-w-sm mx-auto">
+            <div class="text-4xl mb-2">📡</div>
+            <h2 class="text-xl font-black text-slate-800 mb-0.5 italic uppercase tracking-tighter">Connecting Hub</h2>
+            <p class="text-slate-400 text-[11px] font-bold tracking-tighter leading-tight">서버에 연결 중입니다...</p>
         </div>
 
-        <div id="main-ui" class="hidden space-y-2">
+        <div id="main-ui" class="hidden">
             <div class="ctrl-panel">
-                <div class="flex flex-wrap gap-2 items-end">
-                    <div class="flex-1 min-w-[110px]">
-                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase tracking-widest text-center block">작업 날짜</label>
-                        <input type="date" id="date-picker" class="w-full p-1 bg-slate-50 border border-slate-200 rounded font-black text-base focus:border-blue-500 outline-none shadow-inner">
+                <div class="flex flex-wrap gap-1.5 items-end">
+                    <div class="flex-1 min-w-[100px]">
+                        <label class="text-[7px] font-black text-blue-700 ml-1 uppercase tracking-widest block">작업 날짜</label>
+                        <input type="date" id="date-picker" class="w-full p-1 bg-slate-50 border border-slate-200 rounded font-black text-sm focus:border-blue-500 outline-none">
                     </div>
-                    <div class="flex-1 min-w-[110px]">
-                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase tracking-widest text-center block">시트 선택</label>
-                        <select id="sheet-selector" class="w-full p-1 bg-slate-50 border border-slate-200 rounded font-black text-base focus:border-blue-500 outline-none shadow-inner"></select>
+                    <div class="flex-1 min-w-[100px]">
+                        <label class="text-[7px] font-black text-blue-700 ml-1 uppercase tracking-widest block">시트 선택</label>
+                        <select id="sheet-selector" class="w-full p-1 bg-slate-50 border border-slate-200 rounded font-black text-sm focus:border-blue-500 outline-none"></select>
                     </div>
                     <div class="flex gap-1">
-                        <button onclick="changeDate(-1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition">이전</button>
-                        <button onclick="window.loadCurrentFromCloud()" class="bg-blue-600 text-white font-black px-8 py-1.5 rounded text-sm shadow-lg hover:bg-blue-700 active:scale-95 transition-all">조회</button>
-                        <button onclick="changeDate(1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition">다음</button>
+                        <button onclick="changeDate(-1)" class="bg-slate-200 text-slate-700 font-black px-2 py-1 rounded text-[10px]">이전</button>
+                        <button onclick="window.loadCurrentFromCloud()" class="bg-blue-600 text-white font-black px-5 py-1 rounded text-xs shadow-md">조회</button>
+                        <button onclick="changeDate(1)" class="bg-slate-200 text-slate-700 font-black px-2 py-1 rounded text-[10px]">다음</button>
                     </div>
                     <div id="admin-actions">
-                        <button onclick="window.saveToCloud()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-1.5 rounded text-[10px] shadow-sm transition-all flex items-center gap-1">☁️ 배포하기</button>
+                        <button onclick="window.saveToCloud()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-1.5 rounded text-[9px] shadow-sm flex items-center gap-1">☁️ 배포</button>
                     </div>
                 </div>
             </div>
-            <div id="process-list" class="space-y-4 pb-20"></div>
+            <div id="process-list" class="space-y-3 pb-16"></div>
         </div>
     </main>
 
     <!-- QR Modal -->
     <div id="qr-modal-container" onclick="toggleQRModal()">
         <div class="qr-card" onclick="event.stopPropagation()">
-            <h3 class="text-xl font-black text-slate-800 mb-1 italic uppercase tracking-tighter">현장 배포 QR</h3>
-            <p id="qr-date-label" class="text-blue-600 font-black text-xs mb-4">YYYY-MM-DD 공정</p>
-            <div id="qr-code-view" class="flex justify-center bg-white p-2 rounded-xl border border-slate-100 mb-4"></div>
+            <h3 class="text-lg font-black text-slate-800 mb-0.5 italic uppercase tracking-tighter">현장 배포 QR</h3>
+            <p id="qr-date-label" class="text-blue-600 font-black text-[10px] mb-3">YYYY-MM-DD 공정</p>
+            <div id="qr-code-view" class="flex justify-center bg-white p-2 rounded-lg border border-slate-50 mb-3"></div>
             
-            <div class="grid grid-cols-2 gap-2 mb-4">
-                <button onclick="copyShareLink()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-black py-2 rounded-xl text-[10px] uppercase transition-all">링크 복사</button>
-                <button onclick="shareLinkMobile()" class="bg-blue-100 hover:bg-blue-200 text-blue-700 font-black py-2 rounded-xl text-[10px] uppercase transition-all">기기 공유</button>
+            <div class="grid grid-cols-2 gap-1.5 mb-3">
+                <button onclick="copyShareLink()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-black py-2 rounded-lg text-[9px] uppercase">링크 복사</button>
+                <button onclick="shareLinkMobile()" class="bg-blue-100 hover:bg-blue-200 text-blue-700 font-black py-2 rounded-lg text-[9px] uppercase">기기 공유</button>
             </div>
 
-            <button onclick="toggleQRModal()" class="w-full bg-slate-900 text-white font-black py-3 rounded-xl uppercase tracking-widest text-xs">닫기</button>
+            <button onclick="toggleQRModal()" class="w-full bg-slate-900 text-white font-black py-2.5 rounded-lg uppercase tracking-widest text-[10px]">닫기</button>
         </div>
     </div>
 
     <div id="loading-overlay" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center z-[100]">
-        <div class="bg-white px-8 py-6 rounded-2xl shadow-2xl flex flex-col items-center">
-            <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
-            <p id="loading-text" class="font-black text-slate-800 text-base italic tracking-tight uppercase">Processing...</p>
+        <div class="bg-white px-6 py-4 rounded-xl shadow-2xl flex flex-col items-center">
+            <div class="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mb-2"></div>
+            <p id="loading-text" class="font-black text-slate-800 text-xs italic tracking-tight uppercase">Processing...</p>
         </div>
     </div>
 
     <div id="custom-toast">
-        <div class="bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-slate-700">
+        <div class="bg-slate-900 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 border border-slate-700">
             <span id="toast-icon">✅</span>
-            <span id="toast-message" class="font-black text-xs tracking-tight uppercase">SUCCESS</span>
+            <span id="toast-message" class="font-black text-[10px] tracking-tight uppercase">SUCCESS</span>
         </div>
     </div>
 
@@ -300,14 +310,12 @@
             return str.replace(/(\d+)[rR]/g, '$1').trim();
         }
 
-        // 공유 링크 생성
         function getShareUrl() {
             const dateStr = document.getElementById('date-picker').value;
             const baseUrl = window.location.origin + window.location.pathname;
             return dateStr ? `${baseUrl}?date=${dateStr}` : baseUrl;
         }
 
-        // 링크 복사 (iFrame 대응)
         window.copyShareLink = () => {
             const url = getShareUrl();
             const textArea = document.createElement("textarea");
@@ -316,14 +324,13 @@
             textArea.select();
             try {
                 document.execCommand('copy');
-                showToast("링크가 클립보드에 복사되었습니다.", "🔗");
+                showToast("링크가 복사되었습니다.", "🔗");
             } catch (err) {
                 console.error('Copy failed', err);
             }
             document.body.removeChild(textArea);
         };
 
-        // 기기 통합 공유
         window.shareLinkMobile = async () => {
             const dateStr = document.getElementById('date-picker').value;
             const shareData = {
@@ -334,15 +341,12 @@
             if (navigator.share) {
                 try {
                     await navigator.share(shareData);
-                } catch (err) {
-                    console.log('Share cancelled or failed');
-                }
+                } catch (err) { console.log('Share failed'); }
             } else {
                 window.copyShareLink();
             }
         };
 
-        // 웹사이트 전체 공유
         window.shareWebsite = () => {
             if (navigator.share) {
                 navigator.share({
@@ -358,7 +362,7 @@
                 textArea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textArea);
-                showToast("웹사이트 주소가 복사되었습니다.");
+                showToast("주소가 복사되었습니다.");
             }
         };
 
@@ -372,20 +376,17 @@
                     showToast("날짜를 먼저 선택해주세요.", "⚠️");
                     return;
                 }
-                
                 document.getElementById('qr-date-label').innerText = `${dateStr} 공정 계획`;
                 const qrContainer = document.getElementById('qr-code-view');
                 qrContainer.innerHTML = '';
-                
                 new QRCode(qrContainer, {
                     text: getShareUrl(),
-                    width: 180,
-                    height: 180,
+                    width: 160,
+                    height: 160,
                     colorDark : "#0f172a",
                     colorLight : "#ffffff",
                     correctLevel : QRCode.CorrectLevel.H
                 });
-                
                 modal.style.display = 'flex';
             }
         }
@@ -393,31 +394,25 @@
         async function handleExcelUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
-            toggleLoading(true, "파일 데이터 분석 중...");
+            toggleLoading(true, "데이터 분석 중...");
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
                     const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                     window.workbookObj = workbook;
-                    const now = new Date();
-                    const currentMonthPart = `${String(now.getFullYear()).slice(-2)}년 ${now.getMonth() + 1}월`; 
                     const selector = document.getElementById('sheet-selector');
                     selector.innerHTML = '';
                     const validSheets = workbook.SheetNames.filter(name => name.includes('계획서') || name.includes('월'));
-                    let bestSheetName = validSheets[0];
                     validSheets.forEach(name => {
                         const opt = document.createElement('option');
                         opt.value = name; opt.innerText = name;
-                        if (name.includes(currentMonthPart)) bestSheetName = name;
                         selector.appendChild(opt);
                     });
-                    if (bestSheetName) selector.value = bestSheetName;
                     document.getElementById('welcome-state').classList.add('hidden');
                     document.getElementById('main-ui').classList.remove('hidden');
                     processExcelData();
                 } catch (err) {
-                    console.error(err);
-                    window.showToast("파일 분석 오류", "❌");
+                    window.showToast("파일 오류", "❌");
                 } finally {
                     toggleLoading(false);
                 }
@@ -440,14 +435,7 @@
                     dateColumns[`${y}-${m}-${day}`] = idx;
                 }
             });
-            const now = new Date();
-            const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-            const availableDates = Object.keys(dateColumns).sort();
-            if (availableDates.length > 0) {
-                const targetDate = availableDates.includes(todayStr) ? todayStr : availableDates[0];
-                document.getElementById('date-picker').value = targetDate;
-                window.analyzeAndPrepareData();
-            }
+            window.analyzeAndPrepareData();
         }
 
         window.analyzeAndPrepareData = () => {
@@ -478,8 +466,8 @@
             container.innerHTML = '';
             const dayItems = procs.filter(p => p.rowIdx <= 32);
             const nightItems = procs.filter(p => p.rowIdx >= 34);
-            renderShiftSection(`☀️ 주간공정 [${dayLead}]`, dayItems, "blue", container);
-            renderShiftSection(`🌙 야간공정 [${nightLead}]`, nightItems, "slate", container);
+            renderShiftSection(`☀️ 주간 [${dayLead}]`, dayItems, "blue", container);
+            renderShiftSection(`🌙 야간 [${nightLead}]`, nightItems, "slate", container);
         };
 
         function renderShiftSection(title, items, theme, container) {
@@ -488,21 +476,21 @@
             const bgColor = theme === 'blue' ? 'bg-blue-700' : 'bg-slate-800';
             section.innerHTML = `
                 <div class="shift-banner ${bgColor} ${borderColor} text-white">
-                    <h2 class="text-base sm:text-lg font-black italic tracking-tighter">${title}</h2>
-                    <span class="text-[10px] font-bold opacity-70">${items.length} 건</span>
+                    <h2 class="text-sm font-black italic tracking-tighter">${title}</h2>
+                    <span class="text-[9px] font-bold opacity-70">${items.length} 건</span>
                 </div>
                 <div class="scroll-container shadow-sm bg-white">
                     <div class="header-row">
                         <div class="header-cell w-order bg-slate-950">수주번호</div>
-                        <div class="header-cell w-qty bg-blue-800 text-center">수량</div>
-                        <div class="header-cell w-dim bg-blue-900 italic">수주치수 / SN</div>
+                        <div class="header-cell w-qty bg-blue-800">수량</div>
+                        <div class="header-cell w-dim bg-blue-900">수주치수 / SN</div>
                         <div class="header-cell w-mat bg-slate-950">재질</div>
-                        <div class="header-cell w-weight bg-orange-700 text-center">투입중량</div>
+                        <div class="header-cell w-weight bg-orange-700">중량</div>
                         <div class="header-cell w-work bg-emerald-900">작업 상세</div>
                         <div class="header-cell w-remark bg-amber-800">비고</div>
                     </div>
                     <div class="flex flex-col">
-                        ${items.length > 0 ? items.map(p => createRowHTML(p)).join('') : '<div class="bg-white p-4 text-center font-bold text-slate-300 text-[11px] tracking-tighter uppercase italic">No Schedule Found</div>'}
+                        ${items.length > 0 ? items.map(p => createRowHTML(p)).join('') : '<div class="bg-white py-4 text-center font-bold text-slate-300 text-[10px] uppercase italic">Empty</div>'}
                     </div>
                 </div>
             `;
@@ -523,8 +511,8 @@
                     </div>
                     <div class="cell w-mat bg-white">
                         <div class="flex flex-col">
-                            <span class="val-mat border-b border-slate-50 mb-0.5"><small class="text-[7px] text-blue-500 mr-1 font-black uppercase tracking-tighter">Order</small>${p.matOrder}</span>
-                            <span class="val-mat"><small class="text-[7px] text-slate-400 mr-1 font-black uppercase tracking-tighter">Grade</small>${p.matIn}</span>
+                            <span class="val-mat border-b border-slate-50 mb-0.5"><small class="text-[7px] text-blue-500 mr-1 font-black uppercase">ORD</small>${p.matOrder}</span>
+                            <span class="val-mat"><small class="text-[7px] text-slate-400 mr-1 font-black uppercase">GRD</small>${p.matIn}</span>
                         </div>
                     </div>
                     <div class="cell w-weight bg-orange-50 border-x border-orange-100 text-center"><span class="val-weight">${p.weight}</span></div>
