@@ -196,7 +196,8 @@
         .w-remark { width: 220px; flex-shrink: 0; flex: 1; }
 
         .cell { @apply flex flex-col justify-center px-1 py-0.5 border-r border-slate-100; overflow: hidden; }
-        .header-cell { @apply flex items-center justify-center px-1 py-1 font-black text-[9px] border-r border-slate-700 uppercase tracking-tighter; }
+        /* 헤더 셀 중앙 정렬 강화 */
+        .header-cell { @apply flex items-center justify-center text-center px-1 py-1 font-black text-[9px] border-r border-slate-700 uppercase tracking-tighter; }
 
         .val-order { font-size: 0.85rem; font-weight: 800; }
         .val-qty { font-size: 1.25rem; font-weight: 950; color: #2563eb; text-align: center; line-height: 1; }
@@ -204,8 +205,8 @@
         .val-sn-box { @apply mt-0 px-1.5 py-0 bg-white border border-blue-500 rounded-full font-black text-[8px] text-blue-700 shadow-sm inline-block; }
         .val-mat { font-size: 0.75rem; font-weight: 700; line-height: 1.05; }
         
-        /* 중량열 폰트 크기를 HEAD(9px)와 동일하게 조정 및 겹침 방지 */
-        .val-weight { font-size: 9px; font-weight: 900; color: #ea580c; text-align: center; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } 
+        /* 중량열 폰트 크기를 11px로 조정 및 가독성 업그레이드 */
+        .val-weight { font-size: 11px; font-weight: 950; color: #ea580c; text-align: center; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } 
         
         .val-work { font-size: 0.95rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1; }
         .val-remark { font-size: 0.8rem; font-weight: 700; color: #92400e; white-space: normal; }
