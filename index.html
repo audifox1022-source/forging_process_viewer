@@ -103,26 +103,26 @@
         .row-content { display: inline-flex; min-width: 1650px; background: white; border-bottom: 1px solid #e2e8f0; align-items: stretch; }
         .header-row { display: inline-flex; min-width: 1650px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
 
-        /* 컬럼 너비 조화로운 재설정 */
+        /* 컬럼 너비 최적화 */
         .w-order { width: 150px; flex-shrink: 0; }
-        .w-qty { width: 60px; flex-shrink: 0; } 
+        .w-qty { width: 55px; flex-shrink: 0; } 
         .w-dim { width: 450px; flex-shrink: 0; }
-        .w-mat { width: 180px; flex-shrink: 0; } 
-        .w-weight { width: 160px; flex-shrink: 0; }
+        .w-mat { width: 170px; flex-shrink: 0; } 
+        .w-weight { width: 150px; flex-shrink: 0; }
         .w-work { width: 450px; flex-shrink: 0; }
         .w-remark { width: 250px; flex-shrink: 0; flex: 1; }
 
-        .cell { @apply flex flex-col justify-center px-2 py-1 border-r border-slate-100; }
+        .cell { @apply flex flex-col justify-center px-2 py-1.5 border-r border-slate-100; }
         .header-cell { @apply flex items-center justify-center px-2 py-2 font-black text-[11px] border-r border-slate-700 uppercase tracking-tighter; }
 
-        /* 폰트 계층 조화 (Harmony Optimization) */
-        .val-order { font-size: 1.15rem; font-weight: 800; }
-        .val-qty { font-size: 1.6rem; font-weight: 950; color: #2563eb; line-height: 1; }
-        .val-dim { font-size: 1.35rem; font-weight: 800; line-height: 1.1; }
-        .val-sn-box { @apply mt-1 px-3 py-0.5 bg-white border border-blue-500 rounded-full font-black text-[11px] text-blue-700 shadow-sm inline-block; }
+        /* 폰트 밸런스 개선 (Harmony Optimization) */
+        .val-order { font-size: 1.1rem; font-weight: 800; }
+        .val-qty { font-size: 1.55rem; font-weight: 950; color: #2563eb; line-height: 1; }
+        .val-dim { font-size: 1.3rem; font-weight: 800; line-height: 1.1; }
+        .val-sn-box { @apply mt-1 px-3 py-0.5 bg-white border border-blue-500 rounded-full font-black text-[10px] text-blue-700 shadow-sm inline-block; }
         .val-mat { font-size: 0.9rem; font-weight: 700; line-height: 1.2; }
-        .val-weight { font-size: 1.7rem; font-weight: 950; color: #ea580c; line-height: 1; white-space: nowrap; } 
-        .val-work { font-size: 1.2rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1.1; }
+        .val-weight { font-size: 1.6rem; font-weight: 950; color: #ea580c; line-height: 1; white-space: nowrap; } 
+        .val-work { font-size: 1.15rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1.1; }
         .val-remark { font-size: 0.85rem; font-weight: 700; color: #92400e; white-space: normal; }
 
         .shift-banner { @apply w-full py-2 px-4 mb-1 rounded-lg flex justify-between items-center shadow-sm border-b-[8px]; }
@@ -336,11 +336,11 @@
                     </div>
                     <div class="cell w-mat bg-white">
                         <div class="flex flex-col">
-                            <span class="val-mat border-b border-slate-50 mb-0.5"><small class="text-[7px] text-blue-500 pr-1 font-black">ORD</small>${p.matOrder}</span>
-                            <span class="val-mat"><small class="text-[7px] text-slate-400 pr-1 font-black">INT</small>${p.matIn}</span>
+                            <span class="val-mat border-b border-slate-50 mb-0.5"><small class="text-[7px] text-blue-500 mr-1 font-black">수주</small>${p.matOrder}</span>
+                            <span class="val-mat"><small class="text-[7px] text-slate-400 mr-1 font-black">사내</small>${p.matIn}</span>
                         </div>
                     </div>
-                    <div class="cell w-weight bg-orange-50 border-x border-orange-100 text-center"><span class="val-weight">${p.weight}<small class="text-[11px] font-black italic ml-0.5">T</small></span></div>
+                    <div class="cell w-weight bg-orange-50 border-x border-orange-100 text-center"><span class="val-weight">${p.weight}<small class="text-[10px] font-black italic ml-0.5">T</small></span></div>
                     <div class="cell w-work bg-emerald-50"><span class="val-work font-black tracking-tighter leading-tight">${p.work}</span></div>
                     <div class="cell w-remark bg-amber-50"><span class="val-remark">${p.remark !== '-' ? '📌 ' + p.remark : '-'}</span></div>
                 </div>
