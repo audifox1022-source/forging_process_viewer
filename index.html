@@ -10,8 +10,9 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
+        // 초기 설정
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -21,57 +22,75 @@
         let user = null;
         let unsubscribe = null;
 
+        // 인증 상태 감시 및 초기화
         const initAuth = async () => {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    const res = await signInWithCustomToken(auth, __initial_auth_token);
-                    user = res.user;
+                    await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
-                    const res = await signInAnonymously(auth);
-                    user = res.user;
-                }
-                if(user) {
-                    setTodayDateInput();
-                    window.loadCurrentFromCloud();
+                    await signInAnonymously(auth);
                 }
             } catch (error) {
                 console.error("인증 실패:", error);
+                showToast("인증 실패: 네트워크 연결을 확인하세요.", "❌");
             }
         };
+
+        onAuthStateChanged(auth, (currentUser) => {
+            user = currentUser;
+            if (user) {
+                const syncBadge = document.getElementById('sync-status');
+                if (syncBadge) syncBadge.innerText = "Active Cloud (ID: " + user.uid.substring(0, 5) + ")";
+                setTodayDateInput();
+                window.loadCurrentFromCloud();
+            }
+        });
 
         function setTodayDateInput() {
             const now = new Date();
             const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
             const datePicker = document.getElementById('date-picker');
-            if (datePicker) datePicker.value = todayStr;
+            if (datePicker && !datePicker.value) datePicker.value = todayStr;
         }
 
+        // 전역 함수로 등록하여 HTML에서 호출 가능하게 함
         window.saveToCloud = async () => {
-            if(!user || !window.currentProcessList || window.currentProcessList.length === 0) {
+            if (!user) {
+                showToast("인증 중입니다. 잠시 후 다시 시도하세요.", "⏳");
+                return;
+            }
+            
+            const processList = window.currentProcessList || [];
+            if(processList.length === 0) {
                 showToast("⚠️ 배포할 데이터가 없습니다. 먼저 파일을 업로드하세요.", "❌");
                 return;
             }
+
             const sheetName = document.getElementById('sheet-selector').value;
             const dateStr = document.getElementById('date-picker').value;
-            if(!dateStr) return;
+            if(!dateStr) {
+                showToast("날짜를 선택해주세요.", "📅");
+                return;
+            }
 
-            toggleLoading(true, "서버에 공정 데이터를 동기화 중...");
+            toggleLoading(true, "클라우드에 공정 데이터를 동기화 중...");
             try {
                 const docId = `${sheetName}_${dateStr}`;
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId), {
                     date: dateStr,
                     sheet: sheetName,
-                    procs: JSON.stringify(window.currentProcessList),
-                    dayLead: window.currentDayLead,
-                    nightLead: window.currentNightLead,
+                    procs: JSON.stringify(processList),
+                    dayLead: window.currentDayLead || '미정',
+                    nightLead: window.currentNightLead || '미정',
                     updatedAt: new Date().toISOString()
                 });
                 showToast("✅ 클라우드 배포 완료! 현장에서 즉시 확인 가능합니다.");
             } catch (e) {
-                console.error(e);
+                console.error("저장 오류:", e);
                 showToast("❌ 저장 실패: 관리자 권한을 확인하세요.");
+            } finally {
+                toggleLoading(false);
             }
-            toggleLoading(false);
         };
 
         window.loadCurrentFromCloud = () => {
@@ -92,7 +111,9 @@
                 } else {
                     document.getElementById('process-list').innerHTML = `<div class="text-center py-20 text-slate-400 font-bold text-xl bg-white rounded-3xl border-2 border-dashed tracking-tighter italic">해당 날짜에 등록된 정보가 없습니다.</div>`;
                 }
-            }, (err) => console.error(err));
+            }, (err) => {
+                console.error("동기화 오류:", err);
+            });
         };
 
         window.onload = () => initAuth();
@@ -150,7 +171,7 @@
     <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-md border-b-2 border-blue-600 px-4 py-1.5 flex justify-between items-center">
         <h1 class="text-lg font-black italic tracking-tighter">TAEWOONG <span class="text-blue-500">TPMS</span></h1>
         <div class="flex items-center gap-3">
-            <span id="sync-status" class="hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/20 uppercase tracking-tight">Active Cloud</span>
+            <span id="sync-status" class="hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/20 uppercase tracking-tight">Cloud Syncing...</span>
             <label for="excel-upload" class="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded text-[9px] font-black cursor-pointer shadow-md transition-all uppercase tracking-tight">파일 업로드</label>
             <input id="excel-upload" type="file" class="hidden" accept=".xls,.xlsx" onchange="handleExcelUpload(event)">
         </div>
@@ -219,33 +240,39 @@
 
             const reader = new FileReader();
             reader.onload = function(e) {
-                const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-                window.workbookObj = workbook;
+                try {
+                    const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                    window.workbookObj = workbook;
 
-                const now = new Date();
-                const currentMonthPart = `${String(now.getFullYear()).slice(-2)}년 ${now.getMonth() + 1}월`; 
-                
-                const selector = document.getElementById('sheet-selector');
-                selector.innerHTML = '';
-                
-                const validSheets = workbook.SheetNames.filter(name => name.includes('계획서') || name.includes('월'));
-                let bestSheetName = validSheets[0];
+                    const now = new Date();
+                    const currentMonthPart = `${String(now.getFullYear()).slice(-2)}년 ${now.getMonth() + 1}월`; 
+                    
+                    const selector = document.getElementById('sheet-selector');
+                    selector.innerHTML = '';
+                    
+                    const validSheets = workbook.SheetNames.filter(name => name.includes('계획서') || name.includes('월'));
+                    let bestSheetName = validSheets[0];
 
-                validSheets.forEach(name => {
-                    const opt = document.createElement('option');
-                    opt.value = name; opt.innerText = name;
-                    if (name.includes(currentMonthPart)) bestSheetName = name;
-                    selector.appendChild(opt);
-                });
+                    validSheets.forEach(name => {
+                        const opt = document.createElement('option');
+                        opt.value = name; opt.innerText = name;
+                        if (name.includes(currentMonthPart)) bestSheetName = name;
+                        selector.appendChild(opt);
+                    });
 
-                if (bestSheetName) selector.value = bestSheetName;
+                    if (bestSheetName) selector.value = bestSheetName;
 
-                document.getElementById('admin-actions').classList.remove('hidden');
-                document.getElementById('welcome-state').classList.add('hidden');
-                document.getElementById('main-ui').classList.remove('hidden');
-                
-                processExcelData();
-                toggleLoading(false);
+                    document.getElementById('admin-actions').classList.remove('hidden');
+                    document.getElementById('welcome-state').classList.add('hidden');
+                    document.getElementById('main-ui').classList.remove('hidden');
+                    
+                    processExcelData();
+                } catch (err) {
+                    console.error("파일 처리 실패:", err);
+                    showToast("파일 처리 중 오류가 발생했습니다.", "❌");
+                } finally {
+                    toggleLoading(false);
+                }
             };
             reader.readAsArrayBuffer(file);
         }
@@ -380,7 +407,7 @@
             }
         }
 
-        function showToast(msg, icon = "✅") {
+        window.showToast = (msg, icon = "✅") => {
             const toast = document.getElementById('custom-toast');
             const msgEl = document.getElementById('toast-message');
             const iconEl = document.getElementById('toast-icon');
