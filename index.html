@@ -47,12 +47,15 @@
         }
 
         window.saveToCloud = async () => {
-            if(!user || !window.currentProcessList) return;
+            if(!user || !window.currentProcessList || window.currentProcessList.length === 0) {
+                showToast("⚠️ 배포할 데이터가 없습니다. 먼저 파일을 업로드하세요.", "❌");
+                return;
+            }
             const sheetName = document.getElementById('sheet-selector').value;
             const dateStr = document.getElementById('date-picker').value;
             if(!dateStr) return;
 
-            toggleLoading(true, "클라우드 데이터 배포 중...");
+            toggleLoading(true, "서버에 공정 데이터를 동기화 중...");
             try {
                 const docId = `${sheetName}_${dateStr}`;
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId), {
@@ -63,8 +66,9 @@
                     nightLead: window.currentNightLead,
                     updatedAt: new Date().toISOString()
                 });
-                showToast("✅ 클라우드 저장 완료! 현장에서 즉시 확인 가능합니다.");
+                showToast("✅ 클라우드 배포 완료! 현장에서 즉시 확인 가능합니다.");
             } catch (e) {
+                console.error(e);
                 showToast("❌ 저장 실패: 관리자 권한을 확인하세요.");
             }
             toggleLoading(false);
@@ -86,7 +90,7 @@
                 } else if (window.workbookObj) {
                     window.analyzeAndPrepareData();
                 } else {
-                    document.getElementById('process-list').innerHTML = `<div class="text-center py-20 text-slate-400 font-bold text-xl bg-white rounded-3xl border-2 border-dashed tracking-tighter">해당 날짜에 등록된 정보가 없습니다.</div>`;
+                    document.getElementById('process-list').innerHTML = `<div class="text-center py-20 text-slate-400 font-bold text-xl bg-white rounded-3xl border-2 border-dashed tracking-tighter italic">해당 날짜에 등록된 정보가 없습니다.</div>`;
                 }
             }, (err) => console.error(err));
         };
@@ -104,7 +108,7 @@
         .row-content { display: inline-flex; min-width: 1650px; background: white; border-bottom: 1px solid #e2e8f0; align-items: stretch; }
         .header-row { display: inline-flex; min-width: 1650px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
 
-        /* 컬럼 너비 재설정 (단위 삭제로 더 압축됨) */
+        /* 컬럼 너비 재설정 */
         .w-order { width: 150px; flex-shrink: 0; }
         .w-qty { width: 50px; flex-shrink: 0; } 
         .w-dim { width: 450px; flex-shrink: 0; }
@@ -116,7 +120,7 @@
         .cell { @apply flex flex-col justify-center px-2 py-1.5 border-r border-slate-100; }
         .header-cell { @apply flex items-center justify-center px-2 py-2 font-black text-[11px] border-r border-slate-700 uppercase tracking-tighter; }
 
-        /* 폰트 및 데이터 시인성 최적화 (단위 제거됨) */
+        /* 폰트 및 데이터 시인성 최적화 */
         .val-order { font-size: 1.1rem; font-weight: 800; }
         .val-qty { font-size: 1.55rem; font-weight: 950; color: #2563eb; line-height: 1; text-align: center; }
         .val-dim { font-size: 1.3rem; font-weight: 800; line-height: 1.1; }
@@ -129,6 +133,14 @@
         .shift-banner { @apply w-full py-2 px-4 mb-1 rounded-lg flex justify-between items-center shadow-sm border-b-[8px]; }
         .ctrl-panel { @apply bg-white p-2 rounded-xl shadow-md border border-slate-200 mb-2; }
         
+        /* 토스트 알림 스타일 */
+        #custom-toast { 
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); 
+            z-index: 1000; display: none; 
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp { from { bottom: 0; opacity: 0; } to { bottom: 30px; opacity: 1; } }
+
         ::-webkit-scrollbar { height: 10px; }
         ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; border: 2px solid #f1f5f9; }
     </style>
@@ -147,19 +159,19 @@
     <main class="container-full mt-2">
         <div id="welcome-state" class="bg-white rounded-2xl p-8 text-center border border-blue-100 shadow-xl mt-4 max-w-xl mx-auto">
             <div class="text-5xl mb-3">⚙️</div>
-            <h2 class="text-2xl font-black text-slate-800 mb-1 italic">Forging Work Instruction</h2>
-            <p class="text-slate-400 text-sm font-bold tracking-tighter">엑셀 파일을 업로드하여 오늘 공정을 확인하세요.</p>
+            <h2 class="text-2xl font-black text-slate-800 mb-1 italic uppercase">Forging Workflow</h2>
+            <p class="text-slate-400 text-sm font-bold tracking-tighter">관리자 파일을 업로드하거나 공유 데이터를 실시간 조회하세요.</p>
         </div>
 
         <div id="main-ui" class="hidden space-y-2">
             <div class="ctrl-panel">
                 <div class="flex flex-wrap gap-2 items-end">
                     <div class="flex-1 min-w-[110px]">
-                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase">Date</label>
+                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase">Select Date</label>
                         <input type="date" id="date-picker" class="w-full p-1 bg-slate-50 border border-slate-200 rounded font-black text-base focus:border-blue-500 outline-none">
                     </div>
                     <div class="flex-1 min-w-[110px]">
-                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase">Sheet</label>
+                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase">Select Sheet</label>
                         <select id="sheet-selector" class="w-full p-1 bg-slate-50 border border-slate-200 rounded font-black text-base focus:border-blue-500 outline-none"></select>
                     </div>
                     <div class="flex gap-1">
@@ -182,6 +194,14 @@
         <div class="bg-white px-8 py-6 rounded-2xl shadow-2xl flex flex-col items-center">
             <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
             <p id="loading-text" class="font-black text-slate-800 text-base italic tracking-tight uppercase">Processing...</p>
+        </div>
+    </div>
+
+    <!-- 토스트 알림 영역 -->
+    <div id="custom-toast">
+        <div class="bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-slate-700">
+            <span id="toast-icon">✅</span>
+            <span id="toast-message" class="font-black text-sm tracking-tight">저장 완료</span>
         </div>
     </div>
 
@@ -255,6 +275,7 @@
                 const targetDate = availableDates.includes(todayStr) ? todayStr : availableDates[0];
                 document.getElementById('date-picker').value = targetDate;
                 window.analyzeAndPrepareData();
+                showToast("📁 파일을 성공적으로 분석했습니다.");
             }
         }
 
@@ -290,8 +311,11 @@
             document.getElementById('welcome-state').classList.add('hidden');
             document.getElementById('main-ui').classList.remove('hidden');
 
-            renderShiftSection(`☀️ 주간공정 [${dayLead}]`, procs.filter(p => p.rowIdx <= 32), "blue", container);
-            renderShiftSection(`🌙 야간공정 [${nightLead}]`, procs.filter(p => p.rowIdx >= 34), "slate", container);
+            const dayItems = procs.filter(p => p.rowIdx <= 32);
+            const nightItems = procs.filter(p => p.rowIdx >= 34);
+
+            renderShiftSection(`☀️ 주간공정 [${dayLead}]`, dayItems, "blue", container);
+            renderShiftSection(`🌙 야간공정 [${nightLead}]`, nightItems, "slate", container);
         };
 
         function renderShiftSection(title, items, theme, container) {
@@ -301,8 +325,8 @@
             
             section.innerHTML = `
                 <div class="shift-banner ${bgColor} ${borderColor} text-white">
-                    <h2 class="text-lg sm:text-xl font-black italic tracking-tighter">${title}</h2>
-                    <span class="text-xs font-bold opacity-70">${items.length} PCS</span>
+                    <h2 class="text-base sm:text-lg font-black italic tracking-tighter">${title}</h2>
+                    <span class="text-[10px] font-bold opacity-70">${items.length} PCS</span>
                 </div>
                 <div class="scroll-container shadow-sm">
                     <div class="header-row">
@@ -315,7 +339,7 @@
                         <div class="header-cell w-remark bg-amber-800">비고</div>
                     </div>
                     <div class="flex flex-col">
-                        ${items.length > 0 ? items.map(p => createRowHTML(p)).join('') : '<div class="bg-white p-4 text-center font-bold text-slate-300 text-xs tracking-tighter">계획 없음</div>'}
+                        ${items.length > 0 ? items.map(p => createRowHTML(p)).join('') : '<div class="bg-white p-4 text-center font-bold text-slate-300 text-[11px] tracking-tighter">계획 없음</div>'}
                     </div>
                 </div>
             `;
@@ -341,7 +365,6 @@
                             <span class="val-mat"><small class="text-[7px] text-slate-400 mr-1 font-black">사내</small>${p.matIn}</span>
                         </div>
                     </div>
-                    <!-- 'r'로 오인되던 단위 'T'를 완전히 삭제하여 데이터만 표시 -->
                     <div class="cell w-weight bg-orange-50 border-x border-orange-100 text-center"><span class="val-weight">${p.weight}</span></div>
                     <div class="cell w-work bg-emerald-50"><span class="val-work font-black tracking-tighter leading-tight">${p.work}</span></div>
                     <div class="cell w-remark bg-amber-50"><span class="val-remark">${p.remark !== '-' ? '📌 ' + p.remark : '-'}</span></div>
@@ -357,7 +380,20 @@
             }
         }
 
-        function showToast(msg) { alert(msg); }
+        function showToast(msg, icon = "✅") {
+            const toast = document.getElementById('custom-toast');
+            const msgEl = document.getElementById('toast-message');
+            const iconEl = document.getElementById('toast-icon');
+            if(!toast || !msgEl) return;
+
+            msgEl.innerText = msg;
+            iconEl.innerText = icon;
+            toast.style.display = 'block';
+            
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3500);
+        }
 
         function changeDate(days) {
             const p = document.getElementById('date-picker');
