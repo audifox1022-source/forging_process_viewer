@@ -82,91 +82,91 @@
         .container-full { width: 100%; padding: 0 0.25rem; }
         
         /* 가로 스크롤 레이아웃 및 겹침 방지 너비 고정 */
-        .scroll-container { overflow-x: auto; width: 100%; border-radius: 12px; }
-        .row-content { display: inline-flex; min-width: 1950px; background: white; border-bottom: 2px solid #e2e8f0; align-items: stretch; }
-        .header-row { display: inline-flex; min-width: 1950px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
+        .scroll-container { overflow-x: auto; width: 100%; border-radius: 8px; }
+        .row-content { display: inline-flex; min-width: 1900px; background: white; border-bottom: 1px solid #e2e8f0; align-items: stretch; }
+        .header-row { display: inline-flex; min-width: 1900px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
 
-        /* 각 항목별 고정 너비 설정 (글자 겹침 방지 핵심) */
-        .w-order { width: 200px; flex-shrink: 0; }
-        .w-qty { width: 110px; flex-shrink: 0; }
-        .w-dim { width: 520px; flex-shrink: 0; }
-        .w-mat { width: 280px; flex-shrink: 0; }
+        /* 각 항목별 고정 너비 설정 (겹침 방지 최적화) */
+        .w-order { width: 180px; flex-shrink: 0; }
+        .w-qty { width: 100px; flex-shrink: 0; }
+        .w-dim { width: 500px; flex-shrink: 0; }
+        .w-mat { width: 260px; flex-shrink: 0; }
         .w-weight { width: 220px; flex-shrink: 0; }
-        .w-work { width: 580px; flex-shrink: 0; }
-        .w-remark { width: 400px; flex-shrink: 0; }
+        .w-work { width: 560px; flex-shrink: 0; }
+        .w-remark { width: 380px; flex-shrink: 0; }
 
-        .cell { @apply flex flex-col justify-center px-4 py-2 border-r border-slate-200; }
-        .header-cell { @apply flex items-center justify-center px-4 py-3 font-black text-sm border-r border-slate-700 uppercase tracking-tighter; }
+        .cell { @apply flex flex-col justify-center px-3 py-1.5 border-r border-slate-100; }
+        .header-cell { @apply flex items-center justify-center px-3 py-2 font-black text-xs border-r border-slate-700 uppercase tracking-tighter; }
 
         /* 가독성 증폭 폰트 설정 */
-        .val-order { font-size: 1.4rem; font-weight: 900; }
-        .val-qty { font-size: 2.6rem; font-weight: 950; color: #2563eb; line-height: 1; }
-        .val-dim { font-size: 1.7rem; font-weight: 900; line-height: 1.1; }
-        .val-sn-box { @apply mt-1 px-5 py-1 bg-white border-2 border-blue-500 rounded-full font-black text-lg text-blue-700 shadow-md inline-block; }
-        .val-mat { font-size: 1.3rem; font-weight: 700; }
-        .val-weight { font-size: 3.1rem; font-weight: 950; color: #ea580c; line-height: 1; white-space: nowrap; }
-        .val-work { font-size: 1.6rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1.2; }
-        .val-remark { font-size: 1.2rem; font-weight: 700; color: #92400e; white-space: normal; }
+        .val-order { font-size: 1.3rem; font-weight: 900; }
+        .val-qty { font-size: 2.4rem; font-weight: 950; color: #2563eb; line-height: 1; }
+        .val-dim { font-size: 1.6rem; font-weight: 800; line-height: 1.1; overflow: hidden; }
+        .val-sn-box { @apply mt-1 px-4 py-0.5 bg-white border border-blue-500 rounded-full font-black text-base text-blue-700 shadow-sm inline-block; }
+        .val-mat { font-size: 1.2rem; font-weight: 700; }
+        .val-weight { font-size: 2.8rem; font-weight: 950; color: #ea580c; line-height: 1; white-space: nowrap; overflow: hidden; }
+        .val-work { font-size: 1.5rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1.2; }
+        .val-remark { font-size: 1.1rem; font-weight: 700; color: #92400e; white-space: normal; }
 
         /* 섹션 배너 및 컨트롤 압축 */
-        .shift-banner { @apply w-full py-3 px-6 mb-2 rounded-xl flex justify-between items-center shadow-md border-b-[10px]; }
-        .ctrl-panel { @apply bg-white p-3 rounded-2xl shadow-lg border border-slate-200 mb-4; }
+        .shift-banner { @apply w-full py-2 px-4 mb-1 rounded-lg flex justify-between items-center shadow-sm border-b-[6px]; }
+        .ctrl-panel { @apply bg-white p-2 rounded-xl shadow border border-slate-200 mb-2; }
         
         /* 스크롤바 */
-        ::-webkit-scrollbar { height: 14px; }
-        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 20px; border: 3px solid #f1f5f9; }
+        ::-webkit-scrollbar { height: 10px; }
+        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; border: 2px solid #f1f5f9; }
     </style>
 </head>
 <body class="pb-10">
 
-    <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-md border-b-4 border-blue-600 px-4 py-2 flex justify-between items-center">
+    <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-md border-b-2 border-blue-600 px-4 py-2 flex justify-between items-center">
         <h1 class="text-xl font-black italic tracking-tighter">TAEWOONG <span class="text-blue-500">TPMS</span></h1>
         <div class="flex items-center gap-3">
-            <span id="sync-status" class="hidden sm:block text-[9px] font-black px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/20">CLOUD SYNC</span>
-            <label for="excel-upload" class="bg-blue-600 hover:bg-blue-500 px-4 py-1.5 rounded-lg text-[11px] font-black cursor-pointer shadow transition-all">📁 파일 업로드(관리자)</label>
+            <span id="sync-status" class="hidden sm:block text-[9px] font-black px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/20 uppercase">Cloud Sync Active</span>
+            <label for="excel-upload" class="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded text-[10px] font-black cursor-pointer shadow transition-all uppercase tracking-tight">Upload Excel</label>
             <input id="excel-upload" type="file" class="hidden" accept=".xls,.xlsx" onchange="handleExcelUpload(event)">
         </div>
     </header>
 
     <main class="container-full mt-2">
-        <div id="welcome-state" class="bg-white rounded-3xl p-10 text-center border border-blue-100 shadow-xl mt-8 max-w-2xl mx-auto">
-            <div class="text-6xl mb-4">⚒️</div>
-            <h2 class="text-3xl font-black text-slate-800 mb-2 italic">Forging Work Instruction</h2>
-            <p class="text-slate-500 text-lg font-bold">엑셀을 업로드하거나 클라우드 데이터를 확인하세요.</p>
+        <div id="welcome-state" class="bg-white rounded-2xl p-8 text-center border border-blue-100 shadow-lg mt-4 max-w-xl mx-auto">
+            <div class="text-5xl mb-3">⚒️</div>
+            <h2 class="text-2xl font-black text-slate-800 mb-1 italic">Forging Work Instruction</h2>
+            <p class="text-slate-400 text-sm font-bold">엑셀 파일을 업로드하거나 공유된 데이터를 확인하세요.</p>
         </div>
 
-        <div id="main-ui" class="hidden space-y-4">
+        <div id="main-ui" class="hidden space-y-2">
             <!-- 압축된 필터 영역 -->
             <div class="ctrl-panel">
-                <div class="flex flex-wrap gap-4 items-end">
-                    <div class="flex-1 min-w-[140px]">
-                        <label class="text-[10px] font-black text-blue-700 ml-1 uppercase">📅 날짜</label>
-                        <input type="date" id="date-picker" onchange="loadCurrentFromCloud()" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-black text-lg focus:border-blue-500 outline-none">
+                <div class="flex flex-wrap gap-2 items-end">
+                    <div class="flex-1 min-w-[120px]">
+                        <label class="text-[9px] font-black text-blue-700 ml-1 uppercase">Date</label>
+                        <input type="date" id="date-picker" onchange="loadCurrentFromCloud()" class="w-full p-1.5 bg-slate-50 border border-slate-200 rounded font-black text-base focus:border-blue-500 outline-none">
                     </div>
-                    <div class="flex-1 min-w-[140px]">
-                        <label class="text-[10px] font-black text-blue-700 ml-1 uppercase">📄 시트</label>
-                        <select id="sheet-selector" onchange="loadCurrentFromCloud()" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-black text-lg focus:border-blue-500 outline-none"></select>
+                    <div class="flex-1 min-w-[120px]">
+                        <label class="text-[9px] font-black text-blue-700 ml-1 uppercase">Sheet</label>
+                        <select id="sheet-selector" onchange="loadCurrentFromCloud()" class="w-full p-1.5 bg-slate-50 border border-slate-200 rounded font-black text-base focus:border-blue-500 outline-none"></select>
                     </div>
-                    <div class="flex gap-2">
-                        <button onclick="changeDate(-1)" class="bg-slate-800 text-white font-black px-5 py-2 rounded-lg text-sm hover:bg-black transition">이전</button>
-                        <button onclick="changeDate(1)" class="bg-slate-800 text-white font-black px-5 py-2 rounded-lg text-sm hover:bg-black transition">다음</button>
+                    <div class="flex gap-1">
+                        <button onclick="changeDate(-1)" class="bg-slate-800 text-white font-black px-4 py-2 rounded text-xs hover:bg-black transition">이전</button>
+                        <button onclick="changeDate(1)" class="bg-slate-800 text-white font-black px-4 py-2 rounded text-xs hover:bg-black transition">다음</button>
                     </div>
                     <div id="admin-actions" class="hidden">
-                        <button onclick="saveToCloud()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-6 py-2 rounded-lg text-sm shadow-md transition-all flex items-center gap-2">☁️ 현장 배포</button>
+                        <button onclick="saveToCloud()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-2 rounded text-xs shadow-sm transition-all flex items-center gap-1">☁️ 데이터 배포</button>
                     </div>
                 </div>
             </div>
 
             <!-- 공정 목록 -->
-            <div id="process-list" class="space-y-10 pb-20"></div>
+            <div id="process-list" class="space-y-6 pb-20"></div>
         </div>
     </main>
 
     <!-- 로딩 스피너 -->
-    <div id="loading-overlay" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md hidden flex items-center justify-center z-[100]">
-        <div class="bg-white px-10 py-8 rounded-3xl shadow-2xl flex flex-col items-center">
-            <div class="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p id="loading-text" class="font-black text-slate-800 text-xl italic">DATA PARSING...</p>
+    <div id="loading-overlay" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center z-[100]">
+        <div class="bg-white px-8 py-6 rounded-2xl shadow-2xl flex flex-col items-center">
+            <div class="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+            <p id="loading-text" class="font-black text-slate-800 text-lg italic tracking-tight">ANALYZING...</p>
         </div>
     </div>
 
@@ -219,11 +219,13 @@
                 }
             });
 
-            // 오늘 날짜 자동 로직
+            // 오늘 날짜 자동 선택 로직
             const today = new Date().toISOString().split('T')[0];
             const availableDates = Object.keys(dateColumns).sort();
             if (availableDates.length > 0) {
-                document.getElementById('date-picker').value = availableDates.includes(today) ? today : availableDates[0];
+                // 오늘 날짜가 있으면 오늘, 없으면 첫 번째 날짜
+                const targetDate = availableDates.includes(today) ? today : availableDates[0];
+                document.getElementById('date-picker').value = targetDate;
                 analyzeAndPrepareData();
             }
         }
@@ -248,6 +250,7 @@
                 }
             }
             
+            // 34열(index 33)과 65열(index 64)에서 작업자 추출
             window.currentDayLead = currentSheetFullData[33] ? (currentSheetFullData[33][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
             window.currentNightLead = currentSheetFullData[64] ? (currentSheetFullData[64][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
             
@@ -271,10 +274,10 @@
             
             section.innerHTML = `
                 <div class="shift-banner ${bgColor} ${borderColor} text-white">
-                    <h2 class="text-3xl font-black italic">${title}</h2>
-                    <span class="text-xl font-bold opacity-60">${items.length} PCS</span>
+                    <h2 class="text-xl sm:text-2xl font-black italic tracking-tighter">${title}</h2>
+                    <span class="text-sm font-bold opacity-70">${items.length}건</span>
                 </div>
-                <div class="scroll-container shadow-xl border-2 border-slate-300">
+                <div class="scroll-container shadow-md border border-slate-300">
                     <div class="header-row">
                         <div class="header-cell w-order bg-slate-950">수주번호</div>
                         <div class="header-cell w-qty bg-blue-800">수량</div>
@@ -285,7 +288,7 @@
                         <div class="header-cell w-remark bg-amber-800">비고</div>
                     </div>
                     <div class="flex flex-col">
-                        ${items.length > 0 ? items.map(p => createRowHTML(p)).join('') : '<div class="bg-white p-10 text-center font-bold text-slate-300">작업 없음</div>'}
+                        ${items.length > 0 ? items.map(p => createRowHTML(p)).join('') : '<div class="bg-white p-6 text-center font-bold text-slate-300 text-sm italic">작업 없음</div>'}
                     </div>
                 </div>
             `;
@@ -299,18 +302,20 @@
 
             return `
                 <div class="row-content">
-                    <div class="cell w-order bg-slate-900 text-white text-center"><span class="val-order">${p.id}</span></div>
-                    <div class="cell w-qty text-center bg-blue-50/20"><span class="val-qty">${p.qty}</span></div>
+                    <div class="cell w-order bg-slate-900 text-white text-center"><span class="val-order tracking-tighter">${p.id}</span></div>
+                    <div class="cell w-qty text-center bg-blue-50/20"><span class="val-qty tracking-tighter">${p.qty}</span></div>
                     <div class="cell w-dim bg-blue-50/50 text-center">
                         <span class="val-dim">${dimMain}</span>
                         ${snTag ? `<div class="val-sn-box"><span class="val-sn">${snTag}</span></div>` : ''}
                     </div>
                     <div class="cell w-mat bg-white">
-                        <div class="flex flex-col"><span class="val-mat text-blue-700 font-black text-[10px]">ORDER</span><span class="val-mat mb-1">${p.matOrder}</span>
-                        <span class="val-mat text-slate-400 font-black text-[10px]">GRADE</span><span class="val-mat">${p.matIn}</span></div>
+                        <div class="flex flex-col">
+                            <span class="val-mat mb-1 border-b border-slate-100 pb-0.5"><small class="text-[8px] text-blue-500 mr-1 font-black">ORDER</small>${p.matOrder}</span>
+                            <span class="val-mat"><small class="text-[8px] text-slate-400 mr-1 font-black">GRADE</small>${p.matIn}</span>
+                        </div>
                     </div>
-                    <div class="cell w-weight bg-orange-50 border-x-2 border-orange-200 text-center"><span class="val-weight">${p.weight}<small class="text-xl font-black italic ml-1">T</small></span></div>
-                    <div class="cell w-work bg-emerald-50"><span class="val-work font-black tracking-tighter">${p.work}</span></div>
+                    <div class="cell w-weight bg-orange-50 border-x border-orange-200 text-center"><span class="val-weight">${p.weight}<small class="text-sm font-black italic ml-0.5 tracking-normal">T</small></span></div>
+                    <div class="cell w-work bg-emerald-50"><span class="val-work font-black tracking-tighter leading-none">${p.work}</span></div>
                     <div class="cell w-remark bg-amber-50"><span class="val-remark">${p.remark !== '-' ? '📌 ' + p.remark : '-'}</span></div>
                 </div>
             `;
