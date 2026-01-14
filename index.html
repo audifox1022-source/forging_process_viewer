@@ -25,7 +25,6 @@
             measurementId: "G-KYJ5XFCNWL"
         };
 
-        // 환경 변수가 있으면 우선 사용하고, 없으면 제공된 manualConfig를 사용합니다.
         let config = null;
         try {
             const envConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
@@ -71,6 +70,13 @@
                         user = currentUser;
                         updateStatus("ONLINE SYNC ACTIVE", "active");
                         setTodayDateInput();
+                        
+                        // 작업자를 위해 조회 UI를 즉시 활성화
+                        document.getElementById('welcome-state').classList.add('hidden');
+                        document.getElementById('main-ui').classList.remove('hidden');
+                        
+                        // 초기 시트 목록이 없을 경우 기본 시트명이라도 세팅 시도
+                        setupDefaultSheets();
                         window.loadCurrentFromCloud();
                     } else {
                         updateStatus("AUTHENTICATING...", "info");
@@ -88,6 +94,18 @@
                 updateStatus("CLOUD ERROR", "error");
             }
         };
+
+        function setupDefaultSheets() {
+            const selector = document.getElementById('sheet-selector');
+            if (selector.options.length === 0) {
+                const now = new Date();
+                const currentMonthPart = `${String(now.getFullYear()).slice(-2)}년 ${now.getMonth() + 1}월`;
+                const opt = document.createElement('option');
+                opt.value = currentMonthPart;
+                opt.innerText = currentMonthPart;
+                selector.appendChild(opt);
+            }
+        }
 
         function setTodayDateInput() {
             const now = new Date();
@@ -149,9 +167,14 @@
                 } else if (window.workbookObj) {
                     window.analyzeAndPrepareData(); 
                 } else {
-                    document.getElementById('process-list').innerHTML = `<div class="text-center py-20 text-slate-400 font-bold text-xl bg-white rounded-3xl border-2 border-dashed">해당 날짜에 배포된 공정 계획이 없습니다.</div>`;
+                    // 데이터가 없을 때도 리스트 영역을 비우고 안내 메시지 출력
+                    const container = document.getElementById('process-list');
+                    container.innerHTML = `<div class="text-center py-20 text-slate-400 font-bold text-xl bg-white rounded-3xl border-2 border-dashed">해당 날짜에 배포된 공정 계획이 없습니다.</div>`;
                 }
-            }, (err) => console.warn("Snapshot error", err));
+            }, (err) => {
+                console.warn("Snapshot error", err);
+                showToast("데이터 조회 중 오류 발생", "❌");
+            });
         };
 
         window.onload = () => initAuth();
@@ -204,32 +227,34 @@
     </header>
 
     <main class="container-full mt-2">
+        <!-- 초기 대기 상태 (인증 전) -->
         <div id="welcome-state" class="bg-white rounded-2xl p-8 text-center border border-blue-100 shadow-xl mt-4 max-w-xl mx-auto">
             <div class="text-5xl mb-3">📡</div>
-            <h2 class="text-2xl font-black text-slate-800 mb-1 italic uppercase tracking-tighter">Connection Ready</h2>
+            <h2 class="text-2xl font-black text-slate-800 mb-1 italic uppercase tracking-tighter">Connecting...</h2>
             <p class="text-slate-400 text-sm font-bold tracking-tighter leading-tight">
-                실전 클라우드 설정이 완료되었습니다.<br>
-                현장에서는 별도의 업로드 없이 <b>[조회]</b> 버튼만 누르면 됩니다.
+                서버에 연결 중입니다. 잠시만 기다려주세요.
             </p>
         </div>
 
+        <!-- 메인 제어 UI (인증 후 항상 표시) -->
         <div id="main-ui" class="hidden space-y-2">
             <div class="ctrl-panel">
                 <div class="flex flex-wrap gap-2 items-end">
                     <div class="flex-1 min-w-[110px]">
-                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase tracking-widest text-center block">Date</label>
+                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase tracking-widest text-center block">작업 일자</label>
                         <input type="date" id="date-picker" class="w-full p-1 bg-slate-50 border border-slate-200 rounded font-black text-base focus:border-blue-500 outline-none shadow-inner">
                     </div>
                     <div class="flex-1 min-w-[110px]">
-                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase tracking-widest text-center block">Sheet</label>
+                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase tracking-widest text-center block">시트 선택</label>
                         <select id="sheet-selector" class="w-full p-1 bg-slate-50 border border-slate-200 rounded font-black text-base focus:border-blue-500 outline-none shadow-inner"></select>
                     </div>
                     <div class="flex gap-1">
                         <button onclick="changeDate(-1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition shadow-sm">이전</button>
-                        <button onclick="window.loadCurrentFromCloud()" class="bg-blue-600 text-white font-black px-6 py-1.5 rounded text-sm shadow-lg hover:bg-blue-700 active:scale-95 transition-all">조회</button>
+                        <!-- 작업자가 확인하는 핵심 조회 버튼 -->
+                        <button onclick="window.loadCurrentFromCloud()" class="bg-blue-600 text-white font-black px-8 py-1.5 rounded text-sm shadow-lg hover:bg-blue-700 active:scale-95 transition-all">조회</button>
                         <button onclick="changeDate(1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition shadow-sm">다음</button>
                     </div>
-                    <div id="admin-actions" class="hidden">
+                    <div id="admin-actions">
                         <button onclick="window.saveToCloud()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-1.5 rounded text-[10px] shadow-sm transition-all flex items-center gap-1">☁️ 배포하기</button>
                     </div>
                 </div>
@@ -288,9 +313,11 @@
                         selector.appendChild(opt);
                     });
                     if (bestSheetName) selector.value = bestSheetName;
-                    document.getElementById('admin-actions').classList.remove('hidden');
+                    
+                    // 파일 업로드 시 UI 강제 활성화
                     document.getElementById('welcome-state').classList.add('hidden');
                     document.getElementById('main-ui').classList.remove('hidden');
+                    
                     processExcelData();
                 } catch (err) {
                     console.error(err);
@@ -324,7 +351,7 @@
                 const targetDate = availableDates.includes(todayStr) ? todayStr : availableDates[0];
                 document.getElementById('date-picker').value = targetDate;
                 window.analyzeAndPrepareData();
-                window.showToast("📁 파일을 성공적으로 분석하여 지시서를 생성했습니다.");
+                window.showToast("📁 파일을 성공적으로 분석했습니다.");
             }
         }
 
@@ -358,8 +385,6 @@
         window.renderFromCloud = (procs, dayLead, nightLead) => {
             const container = document.getElementById('process-list');
             container.innerHTML = '';
-            document.getElementById('welcome-state').classList.add('hidden');
-            document.getElementById('main-ui').classList.remove('hidden');
             const dayItems = procs.filter(p => p.rowIdx <= 32);
             const nightItems = procs.filter(p => p.rowIdx >= 34);
             renderShiftSection(`☀️ 주간공정 [${dayLead}]`, dayItems, "blue", container);
