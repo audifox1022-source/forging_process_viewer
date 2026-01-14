@@ -42,7 +42,8 @@
         function setTodayDateInput() {
             const now = new Date();
             const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-            document.getElementById('date-picker').value = todayStr;
+            const datePicker = document.getElementById('date-picker');
+            if (datePicker) datePicker.value = todayStr;
         }
 
         window.saveToCloud = async () => {
@@ -51,7 +52,7 @@
             const dateStr = document.getElementById('date-picker').value;
             if(!dateStr) return;
 
-            toggleLoading(true, "데이터 배포 중...");
+            toggleLoading(true, "클라우드 데이터 배포 중...");
             try {
                 const docId = `${sheetName}_${dateStr}`;
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId), {
@@ -85,7 +86,7 @@
                 } else if (window.workbookObj) {
                     window.analyzeAndPrepareData();
                 } else {
-                    document.getElementById('process-list').innerHTML = `<div class="text-center py-16 text-slate-400 font-bold text-xl bg-white rounded-2xl border-2 border-dashed tracking-tighter">해당 날짜에 등록된 정보가 없습니다. [조회]를 눌러보세요.</div>`;
+                    document.getElementById('process-list').innerHTML = `<div class="text-center py-20 text-slate-400 font-bold text-xl bg-white rounded-3xl border-2 border-dashed tracking-tighter">해당 날짜에 등록된 정보가 없습니다.</div>`;
                 }
             }, (err) => console.error(err));
         };
@@ -103,25 +104,25 @@
         .row-content { display: inline-flex; min-width: 1650px; background: white; border-bottom: 1px solid #e2e8f0; align-items: stretch; }
         .header-row { display: inline-flex; min-width: 1650px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
 
-        /* 컬럼 너비 최적화 */
+        /* 컬럼 너비 재설정 (단위 삭제로 더 압축됨) */
         .w-order { width: 150px; flex-shrink: 0; }
-        .w-qty { width: 55px; flex-shrink: 0; } 
+        .w-qty { width: 50px; flex-shrink: 0; } 
         .w-dim { width: 450px; flex-shrink: 0; }
         .w-mat { width: 170px; flex-shrink: 0; } 
-        .w-weight { width: 150px; flex-shrink: 0; }
+        .w-weight { width: 140px; flex-shrink: 0; }
         .w-work { width: 450px; flex-shrink: 0; }
-        .w-remark { width: 250px; flex-shrink: 0; flex: 1; }
+        .w-remark { width: 240px; flex-shrink: 0; flex: 1; }
 
         .cell { @apply flex flex-col justify-center px-2 py-1.5 border-r border-slate-100; }
         .header-cell { @apply flex items-center justify-center px-2 py-2 font-black text-[11px] border-r border-slate-700 uppercase tracking-tighter; }
 
-        /* 폰트 밸런스 개선 (Harmony Optimization) */
+        /* 폰트 및 데이터 시인성 최적화 (단위 제거됨) */
         .val-order { font-size: 1.1rem; font-weight: 800; }
-        .val-qty { font-size: 1.55rem; font-weight: 950; color: #2563eb; line-height: 1; }
+        .val-qty { font-size: 1.55rem; font-weight: 950; color: #2563eb; line-height: 1; text-align: center; }
         .val-dim { font-size: 1.3rem; font-weight: 800; line-height: 1.1; }
         .val-sn-box { @apply mt-1 px-3 py-0.5 bg-white border border-blue-500 rounded-full font-black text-[10px] text-blue-700 shadow-sm inline-block; }
         .val-mat { font-size: 0.9rem; font-weight: 700; line-height: 1.2; }
-        .val-weight { font-size: 1.6rem; font-weight: 950; color: #ea580c; line-height: 1; white-space: nowrap; } 
+        .val-weight { font-size: 1.6rem; font-weight: 950; color: #ea580c; line-height: 1; white-space: nowrap; text-align: center; } 
         .val-work { font-size: 1.15rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1.1; }
         .val-remark { font-size: 0.85rem; font-weight: 700; color: #92400e; white-space: normal; }
 
@@ -300,8 +301,8 @@
             
             section.innerHTML = `
                 <div class="shift-banner ${bgColor} ${borderColor} text-white">
-                    <h2 class="text-base sm:text-lg font-black italic tracking-tighter">${title}</h2>
-                    <span class="text-[10px] font-bold opacity-70">${items.length} 건</span>
+                    <h2 class="text-lg sm:text-xl font-black italic tracking-tighter">${title}</h2>
+                    <span class="text-xs font-bold opacity-70">${items.length} PCS</span>
                 </div>
                 <div class="scroll-container shadow-sm">
                     <div class="header-row">
@@ -314,7 +315,7 @@
                         <div class="header-cell w-remark bg-amber-800">비고</div>
                     </div>
                     <div class="flex flex-col">
-                        ${items.length > 0 ? items.map(p => createRowHTML(p)).join('') : '<div class="bg-white p-4 text-center font-bold text-slate-300 text-[11px] tracking-tighter">계획 없음</div>'}
+                        ${items.length > 0 ? items.map(p => createRowHTML(p)).join('') : '<div class="bg-white p-4 text-center font-bold text-slate-300 text-xs tracking-tighter">계획 없음</div>'}
                     </div>
                 </div>
             `;
@@ -340,7 +341,8 @@
                             <span class="val-mat"><small class="text-[7px] text-slate-400 mr-1 font-black">사내</small>${p.matIn}</span>
                         </div>
                     </div>
-                    <div class="cell w-weight bg-orange-50 border-x border-orange-100 text-center"><span class="val-weight">${p.weight}<small class="text-[10px] font-black italic ml-0.5">T</small></span></div>
+                    <!-- 'r'로 오인되던 단위 'T'를 완전히 삭제하여 데이터만 표시 -->
+                    <div class="cell w-weight bg-orange-50 border-x border-orange-100 text-center"><span class="val-weight">${p.weight}</span></div>
                     <div class="cell w-work bg-emerald-50"><span class="val-work font-black tracking-tighter leading-tight">${p.work}</span></div>
                     <div class="cell w-remark bg-amber-50"><span class="val-remark">${p.remark !== '-' ? '📌 ' + p.remark : '-'}</span></div>
                 </div>
