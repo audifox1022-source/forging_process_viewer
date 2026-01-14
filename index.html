@@ -97,7 +97,6 @@
             document.getElementById('welcome-state').classList.remove('hidden');
         };
 
-        // 데이터 배포 (파일 내 모든 날짜 + 배포 제한일 설정)
         window.saveToCloud = async () => {
             if (!user || !db) { showToast("인증 대기 중", "⏳"); return; }
             if (!window.currentSheetFullData || Object.keys(window.dateColumns).length === 0) {
@@ -199,7 +198,6 @@
         .row-content { display: inline-flex; min-width: 1250px; background: white; border-bottom: 1px solid #e2e8f0; align-items: stretch; }
         .header-row { display: inline-flex; min-width: 1250px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
 
-        /* 컬럼 너비 최적화 */
         .w-order { width: 95px; flex-shrink: 0; }
         .w-qty { width: 40px; flex-shrink: 0; } 
         .w-dim { width: 300px; flex-shrink: 0; }
@@ -209,7 +207,6 @@
         .w-remark { width: 220px; flex-shrink: 0; flex: 1; }
 
         .cell { @apply flex flex-col justify-center px-1 py-0.5 border-r border-slate-100; overflow: hidden; }
-        /* 헤더 중앙 정렬 */
         .header-cell { @apply flex items-center justify-center text-center px-1 py-1.5 font-black text-[9px] border-r border-slate-700 uppercase tracking-tighter; }
 
         .val-order { font-size: 0.85rem; font-weight: 800; }
@@ -217,23 +214,7 @@
         .val-dim { font-size: 1rem; font-weight: 800; line-height: 1; }
         .val-sn-box { @apply mt-0 px-1.5 py-0 bg-white border border-blue-500 rounded-full font-black text-[8px] text-blue-700 shadow-sm inline-block; }
         .val-mat { font-size: 0.75rem; font-weight: 700; line-height: 1.05; }
-        
-        /* 투입중량 16px 강화 */
-        .val-weight { 
-            font-size: 16px; 
-            font-weight: 950; 
-            color: #ea580c; 
-            text-align: center; 
-            line-height: 1.1; 
-            white-space: nowrap; 
-            overflow: hidden; 
-            text-overflow: clip; 
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-        } 
-        
+        .val-weight { font-size: 16px; font-weight: 950; color: #ea580c; text-align: center; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: clip; display: flex; align-items: center; justify-content: center; width: 100%; } 
         .val-work { font-size: 0.95rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1; }
         .val-remark { font-size: 0.8rem; font-weight: 700; color: #92400e; white-space: normal; }
 
@@ -243,6 +224,10 @@
         #custom-toast { position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); z-index: 1000; display: none; }
         ::-webkit-scrollbar { height: 6px; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+        /* Modal Styles */
+        #help-modal-container { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-blur: 5px; z-index: 300; display: none; align-items: center; justify-content: center; padding: 16px; }
+        .help-card { background: white; border-radius: 1.5rem; width: 100%; max-width: 400px; max-height: 85vh; overflow-y: auto; position: relative; padding-bottom: 2rem; }
     </style>
 </head>
 <body class="pb-4">
@@ -250,7 +235,9 @@
     <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-sm border-b border-blue-600 px-2 py-1 flex justify-between items-center">
         <h1 class="text-sm font-black italic tracking-tighter uppercase">Taewoong <span class="text-blue-500">TPMS (15,000T)</span></h1>
         <div class="flex items-center gap-1">
-            <span id="sync-status" class="hidden sm:block text-[7px] font-black px-1 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase tracking-tight italic">Waiting</span>
+            <button onclick="toggleHelpModal()" class="bg-slate-800 hover:bg-slate-700 p-0.5 rounded border border-slate-700 transition-colors" title="사용 방법 도움말">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-amber-400"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+            </button>
             <button onclick="shareWebsite()" class="bg-slate-800 hover:bg-slate-700 p-0.5 rounded border border-slate-700 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-400"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>
             </button>
@@ -260,7 +247,6 @@
     </header>
 
     <main class="container-full mt-1">
-        <!-- 초기 대형 QR 섹션 -->
         <div id="welcome-state" class="hidden bg-white rounded-2xl p-6 text-center border-4 border-blue-600 shadow-2xl mt-4 max-w-sm mx-auto animate-in fade-in zoom-in duration-300">
             <h2 class="text-lg font-black text-slate-800 mb-0.5 uppercase tracking-tighter italic">Forging Hub</h2>
             <p id="main-qr-label" class="text-blue-600 font-black text-[10px] mb-4 uppercase tracking-widest">15,000T 공정 계획 QR</p>
@@ -295,6 +281,53 @@
         </div>
     </main>
 
+    <!-- 사용자 도움말 모달 (Help Guide) -->
+    <div id="help-modal-container" onclick="toggleHelpModal()">
+        <div class="help-card animate-in slide-in-from-bottom duration-300" onclick="event.stopPropagation()">
+            <div class="sticky top-0 bg-slate-900 text-white p-4 rounded-t-1.5xl flex justify-between items-center">
+                <h3 class="font-black italic tracking-tighter uppercase text-sm">TPMS 사용 설명서</h3>
+                <button onclick="toggleHelpModal()" class="text-slate-400 hover:text-white">닫기 ✕</button>
+            </div>
+            <div class="p-5 space-y-6">
+                <!-- Step 1 -->
+                <div class="flex gap-3">
+                    <div class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shrink-0 font-black text-xs">01</div>
+                    <div>
+                        <h4 class="font-black text-slate-800 text-xs mb-1">현장 작업자: QR 스캔</h4>
+                        <p class="text-slate-500 text-[10px] leading-relaxed">메인 화면의 QR 코드를 휴대폰 카메라로 찍으세요. 앱을 설치할 필요 없이 해당 날짜의 공정표로 즉시 이동합니다.</p>
+                    </div>
+                </div>
+                <!-- Step 2 -->
+                <div class="flex gap-3">
+                    <div class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shrink-0 font-black text-xs">02</div>
+                    <div>
+                        <h4 class="font-black text-slate-800 text-xs mb-1">날짜 변경 및 조회</h4>
+                        <p class="text-slate-500 text-[10px] leading-relaxed">상단의 '날짜' 칸을 터치하거나 '이전/다음' 버튼을 눌러 공정표를 확인하세요. 파란색 [조회] 버튼을 누르면 서버에서 최신 정보를 가져옵니다.</p>
+                    </div>
+                </div>
+                <!-- Step 3 -->
+                <div class="flex gap-3">
+                    <div class="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shrink-0 font-black text-xs">03</div>
+                    <div>
+                        <h4 class="font-black text-slate-800 text-xs mb-1">관리자 전용: 데이터 배포</h4>
+                        <p class="text-slate-500 text-[10px] leading-relaxed">엑셀 파일을 [업로드]한 후 [☁️ 배포] 버튼을 누르세요. 현재 화면에 보이는 날짜까지만 현장 작업자들이 조회할 수 있게 자동 제한됩니다.</p>
+                    </div>
+                </div>
+                <!-- Step 4 -->
+                <div class="flex gap-3">
+                    <div class="w-8 h-8 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center shrink-0 font-black text-xs">04</div>
+                    <div>
+                        <h4 class="font-black text-slate-800 text-xs mb-1">모바일 가독성 팁</h4>
+                        <p class="text-slate-500 text-[10px] leading-relaxed">표가 칸에 다 안 보인다면 손가락으로 표를 **왼쪽/오른쪽으로 밀어보세요(스크롤).** 작업 상세나 비고 내용을 더 자세히 확인할 수 있습니다.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="px-5">
+                <button onclick="toggleHelpModal()" class="w-full bg-slate-900 text-white font-black py-3 rounded-xl uppercase tracking-widest text-[10px] shadow-lg">이해했습니다</button>
+            </div>
+        </div>
+    </div>
+
     <div id="loading-overlay" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center z-[100]">
         <div class="bg-white px-5 py-3 rounded-lg shadow-xl flex flex-col items-center">
             <div class="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-1"></div>
@@ -314,6 +347,12 @@
         window.dateColumns = {};
         window.currentProcessList = [];
 
+        // 도움말 모달 제어
+        window.toggleHelpModal = () => {
+            const modal = document.getElementById('help-modal-container');
+            modal.style.display = (modal.style.display === 'flex') ? 'none' : 'flex';
+        };
+
         window.sanitizeNumeric = (val) => {
             if (val === undefined || val === null) return '';
             return val.toString().replace(/(\d+)[rR]/g, '$1').trim();
@@ -332,8 +371,6 @@
             const colIdx = window.dateColumns[dateStr];
             if (colIdx === undefined || !window.currentSheetFullData) return null;
             const procs = [];
-            
-            // 15,000톤 표준 분석 범위
             for(let i=3; i<=63; i++) {
                 if(i === 33) continue;
                 const row = window.currentSheetFullData[i];
