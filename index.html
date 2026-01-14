@@ -85,7 +85,7 @@
                 } else if (window.workbookObj) {
                     window.analyzeAndPrepareData();
                 } else {
-                    document.getElementById('process-list').innerHTML = `<div class="text-center py-20 text-slate-400 font-bold text-2xl bg-white rounded-3xl border-2 border-dashed">해당 날짜에 등록된 데이터가 없습니다.</div>`;
+                    document.getElementById('process-list').innerHTML = `<div class="text-center py-16 text-slate-400 font-bold text-xl bg-white rounded-2xl border-2 border-dashed">클라우드에 해당 날짜 데이터가 없습니다.</div>`;
                 }
             }, (err) => console.error(err));
         };
@@ -94,92 +94,96 @@
     </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800;900&display=swap');
-        body { font-family: 'Pretendard', sans-serif; background-color: #f1f5f9; color: #0f172a; letter-spacing: -0.06em; overflow-x: hidden; margin: 0; }
+        body { font-family: 'Pretendard', sans-serif; background-color: #f1f5f9; color: #0f172a; letter-spacing: -0.05em; overflow-x: hidden; margin: 0; }
         
-        .container-full { width: 100%; padding: 0 0.25rem; }
+        .container-full { width: 100%; padding: 0 0.2rem; }
         
-        /* 초고밀도 레이아웃 */
-        .scroll-container { overflow-x: auto; width: 100%; border-radius: 8px; border: 1px solid #cbd5e1; }
-        .row-content { display: inline-flex; min-width: 1700px; background: white; border-bottom: 1px solid #e2e8f0; align-items: stretch; }
-        .header-row { display: inline-flex; min-width: 1700px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
+        /* 고밀도 레이아웃 - 균형 잡힌 설계 */
+        .scroll-container { overflow-x: auto; width: 100%; border-radius: 6px; border: 1px solid #cbd5e1; }
+        .row-content { display: inline-flex; min-width: 1720px; background: white; border-bottom: 1px solid #e2e8f0; align-items: stretch; }
+        .header-row { display: inline-flex; min-width: 1720px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
 
-        /* 컬럼 너비 추가 최적화 (요청사항 반영) */
+        /* 컬럼 너비 재조정 (조화로운 배치) */
         .w-order { width: 160px; flex-shrink: 0; }
-        .w-qty { width: 60px; flex-shrink: 0; } /* 70px -> 60px 축소 */
+        .w-qty { width: 65px; flex-shrink: 0; } 
         .w-dim { width: 480px; flex-shrink: 0; }
-        .w-mat { width: 200px; flex-shrink: 0; } /* 220px -> 200px 축소 */
-        .w-weight { width: 180px; flex-shrink: 0; }
-        .w-work { width: 500px; flex-shrink: 0; }
-        .w-remark { width: 350px; flex-shrink: 0; flex-grow: 1; }
+        .w-mat { width: 190px; flex-shrink: 0; } 
+        .w-weight { width: 170px; flex-shrink: 0; }
+        .w-work { width: 480px; flex-shrink: 0; }
+        .w-remark { width: 320px; flex-shrink: 0; flex-grow: 1; }
 
         .cell { @apply flex flex-col justify-center px-2 py-1.5 border-r border-slate-100; }
-        .header-cell { @apply flex items-center justify-center px-2 py-2 font-black text-xs border-r border-slate-700 uppercase tracking-tighter; }
+        .header-cell { @apply flex items-center justify-center px-2 py-2 font-black text-[11px] border-r border-slate-700 uppercase tracking-tighter; }
 
-        /* 폰트 및 가독성 최적화 (요청사항: 투입중량 축소) */
-        .val-order { font-size: 1.15rem; font-weight: 900; }
-        .val-qty { font-size: 1.8rem; font-weight: 950; color: #2563eb; line-height: 1; }
-        .val-dim { font-size: 1.5rem; font-weight: 800; line-height: 1.1; }
-        .val-sn-box { @apply mt-1 px-3 py-0.5 bg-white border border-blue-500 rounded-full font-black text-sm text-blue-700 shadow-sm inline-block; }
-        .val-mat { font-size: 1rem; font-weight: 700; line-height: 1.2; }
-        .val-weight { font-size: 1.8rem; font-weight: 950; color: #ea580c; line-height: 1; white-space: nowrap; } /* 2.1rem -> 1.8rem 조정 */
-        .val-work { font-size: 1.35rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1.15; }
-        .val-remark { font-size: 0.95rem; font-weight: 700; color: #92400e; white-space: normal; }
+        /* 폰트 계층 최적화 (Harmony Update) */
+        .val-order { font-size: 1.25rem; font-weight: 900; }
+        .val-qty { font-size: 1.7rem; font-weight: 950; color: #2563eb; line-height: 1; }
+        .val-dim { font-size: 1.45rem; font-weight: 800; line-height: 1.1; }
+        .val-sn-box { @apply mt-1 px-3 py-0.5 bg-white border border-blue-500 rounded-full font-black text-xs text-blue-700 shadow-sm inline-block; }
+        .val-mat { font-size: 0.95rem; font-weight: 700; line-height: 1.2; }
+        .val-weight { font-size: 1.8rem; font-weight: 950; color: #ea580c; line-height: 1; white-space: nowrap; } 
+        .val-work { font-size: 1.3rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1.15; }
+        .val-remark { font-size: 0.9rem; font-weight: 700; color: #92400e; white-space: normal; }
 
-        .shift-banner { @apply w-full py-2 px-4 mb-1 rounded-lg flex justify-between items-center shadow-sm border-b-[8px]; }
+        .shift-banner { @apply w-full py-2 px-4 mb-1 rounded-lg flex justify-between items-center shadow-sm border-b-[6px]; }
         .ctrl-panel { @apply bg-white p-2 rounded-xl shadow-md border border-slate-200 mb-2; }
         
-        ::-webkit-scrollbar { height: 12px; }
+        ::-webkit-scrollbar { height: 10px; }
         ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; border: 2px solid #f1f5f9; }
     </style>
 </head>
 <body class="pb-10">
 
-    <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-md border-b-2 border-blue-600 px-4 py-2 flex justify-between items-center">
-        <h1 class="text-xl font-black italic tracking-tighter">TAEWOONG <span class="text-blue-500">TPMS</span></h1>
+    <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-md border-b-2 border-blue-600 px-4 py-1.5 flex justify-between items-center">
+        <h1 class="text-lg font-black italic tracking-tighter">TAEWOONG <span class="text-blue-500">TPMS</span></h1>
         <div class="flex items-center gap-3">
-            <span id="sync-status" class="hidden sm:block text-[9px] font-black px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/20 uppercase tracking-tight">Active Cloud</span>
-            <label for="excel-upload" class="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded text-[10px] font-black cursor-pointer shadow-md transition-all uppercase tracking-tight">파일 업로드</label>
+            <span id="sync-status" class="hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/20 uppercase tracking-tight">Cloud Active</span>
+            <label for="excel-upload" class="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded text-[9px] font-black cursor-pointer shadow-md transition-all uppercase tracking-tight">파일 업로드</label>
             <input id="excel-upload" type="file" class="hidden" accept=".xls,.xlsx" onchange="handleExcelUpload(event)">
         </div>
     </header>
 
     <main class="container-full mt-2">
-        <div id="welcome-state" class="bg-white rounded-2xl p-8 text-center border border-blue-100 shadow-xl mt-6 max-w-xl mx-auto">
-            <div class="text-6xl mb-3">🛠️</div>
+        <!-- 업로드 환영 섹션 -->
+        <div id="welcome-state" class="bg-white rounded-2xl p-8 text-center border border-blue-100 shadow-xl mt-4 max-w-xl mx-auto">
+            <div class="text-5xl mb-3">⚙️</div>
             <h2 class="text-2xl font-black text-slate-800 mb-1 italic">Forging Work Instruction</h2>
             <p class="text-slate-400 text-sm font-bold">엑셀 파일을 업로드하여 오늘 공정을 즉시 확인하세요.</p>
         </div>
 
         <div id="main-ui" class="hidden space-y-2">
+            <!-- 조회 컨트롤러 -->
             <div class="ctrl-panel">
                 <div class="flex flex-wrap gap-2 items-end">
-                    <div class="flex-1 min-w-[120px]">
-                        <label class="text-[9px] font-black text-blue-700 ml-1 uppercase">Date</label>
-                        <input type="date" id="date-picker" class="w-full p-1.5 bg-slate-50 border border-slate-200 rounded font-black text-base focus:border-blue-500 outline-none">
+                    <div class="flex-1 min-w-[110px]">
+                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase">Date</label>
+                        <input type="date" id="date-picker" class="w-full p-1 bg-slate-50 border border-slate-200 rounded font-black text-base focus:border-blue-500 outline-none">
                     </div>
-                    <div class="flex-1 min-w-[120px]">
-                        <label class="text-[9px] font-black text-blue-700 ml-1 uppercase">Sheet</label>
-                        <select id="sheet-selector" class="w-full p-1.5 bg-slate-50 border border-slate-200 rounded font-black text-base focus:border-blue-500 outline-none"></select>
+                    <div class="flex-1 min-w-[110px]">
+                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase">Sheet</label>
+                        <select id="sheet-selector" class="w-full p-1 bg-slate-50 border border-slate-200 rounded font-black text-base focus:border-blue-500 outline-none"></select>
                     </div>
                     <div class="flex gap-1">
-                        <button onclick="changeDate(-1)" class="bg-slate-200 text-slate-700 font-black px-4 py-2 rounded text-xs hover:bg-slate-300 transition">이전</button>
-                        <button onclick="window.loadCurrentFromCloud()" class="bg-blue-600 text-white font-black px-8 py-2 rounded-lg text-base shadow-lg hover:bg-blue-700 active:scale-95 transition-all">조회</button>
-                        <button onclick="changeDate(1)" class="bg-slate-200 text-slate-700 font-black px-4 py-2 rounded text-xs hover:bg-slate-300 transition">다음</button>
+                        <button onclick="changeDate(-1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition">이전</button>
+                        <button onclick="window.loadCurrentFromCloud()" class="bg-blue-600 text-white font-black px-6 py-1.5 rounded text-sm shadow hover:bg-blue-700 active:scale-95 transition-all">조회</button>
+                        <button onclick="changeDate(1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition">다음</button>
                     </div>
                     <div id="admin-actions" class="hidden">
-                        <button onclick="saveToCloud()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-2 rounded text-xs shadow-sm transition-all flex items-center gap-1">☁️ 배포하기</button>
+                        <button onclick="saveToCloud()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-1.5 rounded text-[10px] shadow-sm transition-all flex items-center gap-1">☁️ 배포하기</button>
                     </div>
                 </div>
             </div>
 
-            <div id="process-list" class="space-y-6 pb-20"></div>
+            <!-- 공정 리스트 출력부 -->
+            <div id="process-list" class="space-y-4 pb-20"></div>
         </div>
     </main>
 
-    <div id="loading-overlay" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm hidden flex items-center justify-center z-[100]">
+    <!-- 로딩 마스크 -->
+    <div id="loading-overlay" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center z-[100]">
         <div class="bg-white px-8 py-6 rounded-2xl shadow-2xl flex flex-col items-center">
-            <div class="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
-            <p id="loading-text" class="font-black text-slate-800 text-lg italic tracking-tight">LOADING...</p>
+            <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+            <p id="loading-text" class="font-black text-slate-800 text-base italic tracking-tight">LOADING...</p>
         </div>
     </div>
 
@@ -201,14 +205,13 @@
                 window.workbookObj = workbook;
 
                 const now = new Date();
-                const currentMonthPart = `${String(now.getFullYear()).slice(-2)}년 ${now.getMonth() + 1}월`; // 예: "26년 1월"
+                const currentMonthPart = `${String(now.getFullYear()).slice(-2)}년 ${now.getMonth() + 1}월`; 
                 
                 const selector = document.getElementById('sheet-selector');
                 selector.innerHTML = '';
                 
-                // 1. 시트 목록 구성 및 최적 시트(현재 월) 찾기
                 const validSheets = workbook.SheetNames.filter(name => name.includes('계획서') || name.includes('월'));
-                let bestSheetName = validSheets[0]; // 기본값
+                let bestSheetName = validSheets[0];
 
                 validSheets.forEach(name => {
                     const opt = document.createElement('option');
@@ -217,14 +220,12 @@
                     selector.appendChild(opt);
                 });
 
-                // 2. 최적 시트 선택
                 if (bestSheetName) selector.value = bestSheetName;
 
                 document.getElementById('admin-actions').classList.remove('hidden');
                 document.getElementById('welcome-state').classList.add('hidden');
                 document.getElementById('main-ui').classList.remove('hidden');
                 
-                // 3. 데이터 분석 및 오늘 날짜 매칭 실행
                 processExcelData();
                 toggleLoading(false);
             };
@@ -248,16 +249,13 @@
                 }
             });
 
-            // 오늘 날짜 자동 포커스 로직 (파일 업로드 즉시 당일 탐색)
             const now = new Date();
             const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
             
             const availableDates = Object.keys(dateColumns).sort();
             if (availableDates.length > 0) {
-                // 오늘 날짜가 엑셀에 있으면 선택, 없으면 첫 번째 날짜
                 const targetDate = availableDates.includes(todayStr) ? todayStr : availableDates[0];
                 document.getElementById('date-picker').value = targetDate;
-                
                 window.analyzeAndPrepareData();
             }
         }
@@ -295,7 +293,7 @@
             document.getElementById('main-ui').classList.remove('hidden');
 
             renderShiftSection(`☀️ 주간공정 [${dayLead}]`, procs.filter(p => p.rowIdx <= 32), "blue", container);
-            renderShiftSection(`🌙 야간공정 [${nightLead}]`, procs.filter(p => p.rowIdx >= 34), "slate", container);
+            renderShiftSection(`🌙 야간공정 [${nightLead}]`, nightItems = procs.filter(p => p.rowIdx >= 34), "slate", container);
         };
 
         function renderShiftSection(title, items, theme, container) {
@@ -305,21 +303,21 @@
             
             section.innerHTML = `
                 <div class="shift-banner ${bgColor} ${borderColor} text-white">
-                    <h2 class="text-xl sm:text-2xl font-black italic tracking-tighter">${title}</h2>
-                    <span class="text-sm font-bold opacity-70">${items.length} PCS</span>
+                    <h2 class="text-lg sm:text-xl font-black italic tracking-tighter">${title}</h2>
+                    <span class="text-xs font-bold opacity-70">${items.length} 건</span>
                 </div>
-                <div class="scroll-container shadow-lg">
+                <div class="scroll-container shadow-sm">
                     <div class="header-row">
-                        <div class="header-cell w-order bg-slate-950 text-[10px]">수주번호</div>
-                        <div class="header-cell w-qty bg-blue-800 text-[10px]">수량</div>
-                        <div class="header-cell w-dim bg-blue-900 italic text-[10px]">수주치수 / S/N</div>
-                        <div class="header-cell w-mat bg-slate-900 text-[10px]">재질</div>
-                        <div class="header-cell w-weight bg-orange-700 text-[10px]">투입중량</div>
-                        <div class="header-cell w-work bg-emerald-900 text-[10px]">작업 상세</div>
-                        <div class="header-cell w-remark bg-amber-800 text-[10px]">비고</div>
+                        <div class="header-cell w-order bg-slate-950">수주번호</div>
+                        <div class="header-cell w-qty bg-blue-800">수량</div>
+                        <div class="header-cell w-dim bg-blue-900 italic">수주치수 / S/N</div>
+                        <div class="header-cell w-mat bg-slate-900">재질</div>
+                        <div class="header-cell w-weight bg-orange-700">투입중량</div>
+                        <div class="header-cell w-work bg-emerald-900">작업 상세</div>
+                        <div class="header-cell w-remark bg-amber-800">비고</div>
                     </div>
                     <div class="flex flex-col">
-                        ${items.length > 0 ? items.map(p => createRowHTML(p)).join('') : '<div class="bg-white p-6 text-center font-bold text-slate-300 text-sm tracking-tighter italic">작업 계획 없음</div>'}
+                        ${items.length > 0 ? items.map(p => createRowHTML(p)).join('') : '<div class="bg-white p-4 text-center font-bold text-slate-300 text-xs tracking-tighter">계획 없음</div>'}
                     </div>
                 </div>
             `;
@@ -335,17 +333,17 @@
                 <div class="row-content">
                     <div class="cell w-order bg-slate-900 text-white text-center"><span class="val-order tracking-tighter">${p.id}</span></div>
                     <div class="cell w-qty text-center bg-blue-50/20"><span class="val-qty tracking-tighter">${p.qty}</span></div>
-                    <div class="cell w-dim bg-blue-50/50 text-center">
+                    <div class="cell w-dim bg-blue-50/50 text-center items-center">
                         <span class="val-dim">${dimMain}</span>
                         ${snTag ? `<div class="val-sn-box"><span class="val-sn">${snTag}</span></div>` : ''}
                     </div>
                     <div class="cell w-mat bg-white">
                         <div class="flex flex-col">
-                            <span class="val-mat mb-1 border-b border-slate-50 pb-0.5"><small class="text-[7px] text-blue-500 mr-1 font-black">ORD</small>${p.matOrder}</span>
+                            <span class="val-mat border-b border-slate-50 mb-0.5"><small class="text-[7px] text-blue-500 mr-1 font-black">ORD</small>${p.matOrder}</span>
                             <span class="val-mat"><small class="text-[7px] text-slate-400 mr-1 font-black">INT</small>${p.matIn}</span>
                         </div>
                     </div>
-                    <div class="cell w-weight bg-orange-50 border-x border-orange-100 text-center"><span class="val-weight">${p.weight}<small class="text-xs font-black italic ml-0.5 tracking-normal">T</small></span></div>
+                    <div class="cell w-weight bg-orange-50 border-x border-orange-100 text-center"><span class="val-weight">${p.weight}<small class="text-xs font-black italic ml-0.5">T</small></span></div>
                     <div class="cell w-work bg-emerald-50"><span class="val-work font-black tracking-tighter leading-none">${p.work}</span></div>
                     <div class="cell w-remark bg-amber-50"><span class="val-remark">${p.remark !== '-' ? '📌 ' + p.remark : '-'}</span></div>
                 </div>
@@ -370,7 +368,7 @@
             const m = String(d.getMonth() + 1).padStart(2, '0');
             const day = String(d.getDate()).padStart(2, '0');
             p.value = `${y}-${m}-${day}`;
-            window.loadCurrentFromCloud();
+            window.analyzeAndPrepareData();
         }
     </script>
 </body>
