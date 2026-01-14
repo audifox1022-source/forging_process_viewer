@@ -17,7 +17,7 @@
         .process-grid { 
             display: grid; 
             grid-template-columns: 1fr; 
-            gap: 0.75rem; 
+            gap: 0.5rem; 
         }
 
         /* 고정 헤더 스타일 */
@@ -28,9 +28,9 @@
 
         /* 가로 바 스타일 카드 */
         .high-visibility-bar {
-            @apply bg-white border-2 border-slate-300 rounded-2xl shadow-sm overflow-hidden flex items-stretch;
+            @apply bg-white border-2 border-slate-300 rounded-xl shadow-sm overflow-hidden flex items-stretch;
             transition: all 0.2s ease;
-            min-height: 120px;
+            min-height: 130px;
         }
         .high-visibility-bar:hover { 
             @apply border-blue-600 shadow-xl;
@@ -48,13 +48,14 @@
 
         /* 폰트 사이즈 및 스타일 */
         .val-order { font-size: 1.8rem; font-weight: 900; color: #ffffff; line-height: 1; }
-        .val-qty { font-size: 2.5rem; font-weight: 950; color: #2563eb; line-height: 1; }
-        .val-dim { font-size: 1.8rem; font-weight: 900; color: #1e293b; line-height: 1.1; }
-        .val-sn { font-size: 1.3rem; font-weight: 800; color: #1e40af; }
-        .val-mat { font-size: 1.4rem; font-weight: 700; color: #334155; }
-        .val-weight { font-size: 3.2rem; font-weight: 950; color: #ea580c; line-height: 1; }
-        .val-work { font-size: 1.7rem; font-weight: 900; color: #064e3b; line-height: 1.2; }
-        .val-remark { font-size: 1.3rem; font-weight: 700; color: #92400e; line-height: 1.2; }
+        .val-qty { font-size: 2.6rem; font-weight: 950; color: #2563eb; line-height: 1; }
+        .val-dim { font-size: 1.9rem; font-weight: 900; color: #1e293b; line-height: 1.1; }
+        .val-sn-box { @apply mt-3 px-6 py-1 bg-white border-2 border-blue-400 rounded-full shadow-sm text-center; }
+        .val-sn { font-size: 1.4rem; font-weight: 800; color: #1e40af; }
+        .val-mat { font-size: 1.5rem; font-weight: 700; color: #334155; }
+        .val-weight { font-size: 3.4rem; font-weight: 950; color: #ea580c; line-height: 1; }
+        .val-work { font-size: 1.8rem; font-weight: 900; color: #064e3b; line-height: 1.2; }
+        .val-remark { font-size: 1.4rem; font-weight: 700; color: #92400e; line-height: 1.2; }
         
         /* 애니메이션 */
         .fade-in-up { animation: fadeInUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
@@ -62,19 +63,19 @@
 
         /* 가로 스크롤 최적화 */
         .scroll-wrapper { overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; }
-        .row-content { display: flex; min-width: 1800px; width: 100%; align-items: stretch; }
+        .row-content { display: flex; min-width: 1900px; width: 100%; align-items: stretch; }
 
         /* 컬럼별 너비 정의 (고정폭) */
         .w-order { min-width: 250px; }
         .w-qty { min-width: 140px; }
-        .w-dim { min-width: 500px; }
-        .w-mat { min-width: 280px; }
-        .w-weight { min-width: 220px; }
-        .w-work { min-width: 550px; }
-        .w-remark { min-width: 350px; flex: 1; }
+        .w-dim { min-width: 550px; }
+        .w-mat { min-width: 300px; }
+        .w-weight { min-width: 240px; }
+        .w-work { min-width: 600px; }
+        .w-remark { min-width: 400px; flex: 1; }
 
         /* 스크롤바 */
-        ::-webkit-scrollbar { height: 12px; width: 12px; }
+        ::-webkit-scrollbar { height: 14px; width: 14px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 3px solid #f1f5f9; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
@@ -89,7 +90,7 @@
                 TAEWOONG <span class="text-blue-500 font-black">TPMS</span>
             </h1>
             <div class="flex items-center gap-6">
-                <div id="current-sheet-display" class="hidden lg:block text-sm font-black text-blue-300 bg-blue-900/40 px-4 py-1.5 rounded-xl border border-blue-700/30 tracking-tight">공정 엑셀 파일을 업로드하세요</div>
+                <div id="current-sheet-display" class="hidden lg:block text-sm font-black text-blue-300 bg-blue-900/40 px-4 py-1.5 rounded-xl border border-blue-700/30 tracking-tight">계획 파일을 업로드하세요</div>
                 <label for="excel-upload" class="bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white px-8 py-3 rounded-2xl text-base font-black cursor-pointer transition-all shadow-lg flex items-center gap-3">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                     파일 업로드
@@ -102,13 +103,11 @@
     <main class="container-full pt-6">
         <!-- 초기 가이드 -->
         <div id="welcome-state" class="bg-white rounded-[3rem] p-20 text-center border-4 border-slate-200 shadow-sm mt-10 max-w-4xl mx-auto fade-in-up">
-            <div class="bg-blue-100 w-36 h-36 rounded-full flex items-center justify-center mx-auto mb-10 shadow-inner">
-                <span class="text-8xl">⚒️</span>
-            </div>
-            <h2 class="text-5xl font-black text-slate-800 mb-6 tracking-tighter uppercase">TPMS Forge Planning</h2>
+            <div class="bg-blue-100 w-36 h-36 rounded-full flex items-center justify-center mx-auto mb-10 shadow-inner text-7xl">⚒️</div>
+            <h2 class="text-5xl font-black text-slate-800 mb-6 tracking-tighter uppercase font-serif italic">Forge Instruction Master</h2>
             <p class="text-slate-500 text-2xl font-bold leading-relaxed">
-                엑셀 파일을 업로드하여<br>
-                <span class="text-blue-600 underline underline-offset-8">초고해상도 작업 지시서</span>를 확인하세요.
+                계획서 엑셀을 업로드하여<br>
+                <span class="text-blue-600 underline underline-offset-8 font-black">34열/65열 작업자 기반 지시서</span>를 확인하세요.
             </p>
         </div>
 
@@ -136,16 +135,16 @@
 
             <!-- 공정 리스트 섹션 -->
             <div id="process-list" class="space-y-16 pb-32">
-                <!-- Shift sections -->
+                <!-- Shift sections injected via JS -->
             </div>
         </div>
     </main>
 
     <!-- 로딩 오버레이 -->
-    <div id="loading-overlay" class="fixed inset-0 bg-slate-900/90 backdrop-blur-xl hidden flex items-center justify-center z-[100]">
+    <div id="loading-overlay" class="fixed inset-0 bg-slate-900/95 backdrop-blur-2xl hidden flex items-center justify-center z-[100]">
         <div class="bg-white px-20 py-16 rounded-[5rem] shadow-2xl flex flex-col items-center">
             <div class="w-24 h-24 border-8 border-blue-600 border-t-transparent rounded-full animate-spin mb-10"></div>
-            <p class="font-black text-slate-800 text-3xl tracking-tighter uppercase">Analyzing Process Data...</p>
+            <p class="font-black text-slate-800 text-4xl tracking-tighter uppercase italic">Processing Data...</p>
         </div>
     </div>
 
@@ -223,14 +222,14 @@
 
             const colIdx = dateColumns[selectedDate];
             if (colIdx === undefined) {
-                container.innerHTML = `<div class="text-center py-20 text-slate-400 font-black text-4xl bg-white rounded-[3rem] border-4 border-dashed tracking-tighter">데이터를 찾을 수 없습니다.</div>`;
+                container.innerHTML = `<div class="text-center py-20 text-slate-400 font-black text-4xl bg-white rounded-[3rem] border-4 border-dashed tracking-tighter italic uppercase">No Data Found for this Date</div>`;
                 return;
             }
 
             let dayProcs = [];
             let nightProcs = [];
             
-            // 주간 (Row 4 ~ 33)
+            // 1. 주간 (4~33행 스캔)
             for (let i = 3; i <= 32; i++) {
                 const row = currentSheetData[i];
                 if (row) {
@@ -239,7 +238,7 @@
                 }
             }
 
-            // 야간 (Row 35 ~ 64)
+            // 2. 야간 (35~64행 스캔)
             for (let i = 34; i <= 63; i++) {
                 const row = currentSheetData[i];
                 if (row) {
@@ -248,9 +247,14 @@
                 }
             }
 
-            // 작업자 이름 정밀 추출 (섹션 제목용)
-            const dayLead = dayProcs.length > 0 ? dayProcs[0].lead.replace(/주간|야간|\//g, '').trim() : '미정';
-            const nightLead = nightProcs.length > 0 ? nightProcs[0].lead.replace(/주간|야간|\//g, '').trim() : '미정';
+            // 3. 작업자 이름 추출 (34열과 65열 기준 - index 33, 64)
+            const dayLeadRow = currentSheetData[33];
+            const nightLeadRow = currentSheetData[64];
+            
+            const dayLead = dayLeadRow && dayLeadRow[colIdx + 8] ? 
+                          dayLeadRow[colIdx + 8].toString().replace(/주간|야간|\//g, '').trim() : '미정';
+            const nightLead = nightLeadRow && nightLeadRow[colIdx + 8] ? 
+                            nightLeadRow[colIdx + 8].toString().replace(/주간|야간|\//g, '').trim() : '미정';
 
             renderShiftSection(`☀️ 주간공정 [${dayLead}]`, dayProcs, "blue", container);
             renderShiftSection(`🌙 야간공정 [${nightLead}]`, nightProcs, "slate", container);
@@ -259,10 +263,11 @@
         function extractRowData(row, colIdx) {
             const orderNo = row[colIdx];
             if (orderNo && orderNo.toString().trim().length >= 4) {
-                // S/N 분리 로직
+                // S/N 분리 로직 (치수 데이터에서 S/N 분리)
                 let dimRaw = (row[colIdx + 1] || '').toString();
-                let dimPart = dimRaw.split(/S\/N/i)[0].trim();
-                let snPart = dimRaw.toLowerCase().includes('s/n') ? 'S/N ' + dimRaw.split(/S\/N/i)[1].replace(/[:]/g, '').trim() : '';
+                let parts = dimRaw.split(/S\/N|s\/n/i);
+                let dimPart = parts[0].trim();
+                let snPart = parts.length > 1 ? 'S/N ' + parts[1].replace(/[:]/g, '').trim() : '';
 
                 return {
                     id: orderNo,
@@ -273,8 +278,7 @@
                     qty: row[colIdx + 4] || '1',
                     work: row[colIdx + 5] || '-',
                     remark: row[colIdx + 6] || '-',
-                    weight: row[colIdx + 7] || '-',
-                    lead: (row[colIdx + 8] || '').toString()
+                    weight: row[colIdx + 7] || '-'
                 };
             }
             return null;
@@ -288,82 +292,82 @@
             const textColor = theme === 'blue' ? 'text-blue-700' : 'text-slate-900';
             
             section.innerHTML = `
-                <div class="flex items-center justify-between mb-2 pb-4 border-b-[12px] ${borderColor} px-2">
-                    <h2 class="text-4xl font-black ${textColor} uppercase tracking-tighter">${title}</h2>
-                    <span class="text-2xl font-black px-8 py-2 bg-slate-200 rounded-[1.5rem] text-slate-700 shadow-inner">${items.length} 건</span>
+                <div class="flex items-center justify-between mb-2 pb-5 border-b-[16px] ${borderColor} px-2">
+                    <h2 class="text-5xl font-black ${textColor} uppercase tracking-tighter italic">${title}</h2>
+                    <span class="text-3xl font-black px-10 py-3 bg-slate-200 rounded-[2rem] text-slate-700 shadow-inner">${items.length} PCS</span>
                 </div>
                 
                 <div class="scroll-wrapper">
-                    <!-- 고정 컬럼 헤더 -->
-                    <div class="row-content column-header mb-3">
-                        <div class="header-cell w-order">수주번호</div>
-                        <div class="header-cell w-qty bg-slate-700">수량</div>
-                        <div class="header-cell w-dim bg-blue-800 text-blue-50">수주치수 / S/N</div>
+                    <!-- 헤더 행 (고정폭 컬럼 제목) -->
+                    <div class="row-content column-header mb-4">
+                        <div class="header-cell w-order bg-slate-900 text-white">수주번호</div>
+                        <div class="header-cell w-qty bg-blue-700">수량</div>
+                        <div class="header-cell w-dim bg-blue-900 text-blue-100 italic">수주치수 / S/N</div>
                         <div class="header-cell w-mat bg-slate-700">재질 (수주/사내)</div>
                         <div class="header-cell w-weight bg-orange-700">투입중량</div>
-                        <div class="header-cell w-work bg-emerald-800">작업 지시 내용</div>
-                        <div class="header-cell w-remark bg-amber-800">현장 비고</div>
+                        <div class="header-cell w-work bg-emerald-900 text-emerald-100">작업 지시 상세</div>
+                        <div class="header-cell w-remark bg-amber-800">현장 특이사항</div>
                     </div>
 
                     <div class="process-grid">
-                        ${items.length === 0 ? '<p class="text-2xl text-slate-400 py-20 font-bold text-center w-full bg-white rounded-[3rem] border-4 border-dashed tracking-tighter uppercase">No Assignments Found</p>' : ''}
+                        ${items.length === 0 ? '<p class="text-3xl text-slate-400 py-24 font-black text-center w-full bg-white rounded-[4rem] border-8 border-dashed tracking-tighter uppercase opacity-50">Empty Assignments</p>' : ''}
                     </div>
                 </div>
             `;
 
             const grid = section.querySelector('.process-grid');
-            items.forEach(item => grid.appendChild(createRowBar(item)));
+            items.forEach(item => grid.appendChild(createHighVisRow(item)));
             container.appendChild(section);
         }
 
-        function createRowBar(item) {
+        function createHighVisRow(item) {
             const card = document.createElement('div');
             card.className = "high-visibility-bar";
             
             card.innerHTML = `
                 <div class="row-content">
-                    <!-- 1. 수주번호 (검정 강조) -->
+                    <!-- 1. 수주번호 (검정 배경 & 화이트 텍스트) -->
                     <div class="data-cell bg-slate-900 w-order flex items-center justify-center text-center">
                         <span class="val-order tracking-tighter">${item.id}</span>
                     </div>
 
-                    <!-- 2. 수량 (파랑 강조) -->
-                    <div class="data-cell w-qty text-center bg-slate-50 border-x-2 border-slate-100">
+                    <!-- 2. 수량 (파랑 배경 & 초대형 텍스트) -->
+                    <div class="data-cell w-qty text-center bg-slate-50 border-x-4 border-slate-200">
                         <span class="val-qty">${item.qty}</span>
                     </div>
 
-                    <!-- 3. 수주 치수 & S/N (하늘색 - 수평/수직 균형) -->
-                    <div class="data-cell w-dim bg-blue-50/50 flex flex-col justify-between items-center text-center">
-                        <span class="val-dim mb-auto">${item.dim.replace(/\n/g, ' ')}</span>
+                    <!-- 3. 수주 치수 & S/N (하늘색 - 상하 중앙 정렬) -->
+                    <div class="data-cell w-dim bg-blue-50/70 flex flex-col justify-center items-center text-center px-10">
+                        <span class="val-dim">${item.dim.replace(/\n/g, ' ')}</span>
                         ${item.sn ? `
-                            <div class="mt-3 px-6 py-1 bg-white/80 border-2 border-blue-400 rounded-full shadow-sm">
+                            <div class="val-sn-box">
                                 <span class="val-sn">${item.sn}</span>
                             </div>
                         ` : ''}
                     </div>
 
-                    <!-- 4. 재질 정보 -->
+                    <!-- 4. 재질 정보 (수주/사내 대비) -->
                     <div class="data-cell w-mat bg-white">
-                        <div class="flex flex-col gap-1">
-                            <span class="val-mat"><span class="text-blue-700 font-black mr-2">수주:</span>${item.matOrder}</span>
-                            <span class="val-mat"><span class="text-slate-400 font-black mr-2">사내:</span>${item.matIn}</span>
+                        <div class="flex flex-col gap-2">
+                            <span class="val-mat"><span class="bg-blue-600 text-white text-xs px-2 py-0.5 rounded mr-3">수주</span>${item.matOrder}</span>
+                            <span class="val-mat"><span class="bg-slate-500 text-white text-xs px-2 py-0.5 rounded mr-3">사내</span>${item.matIn}</span>
                         </div>
                     </div>
 
-                    <!-- 5. 투입중량 (오렌지 강조 - 초대형) -->
-                    <div class="data-cell w-weight bg-orange-50 border-x-4 border-orange-200">
-                        <span class="val-weight">${item.weight}<small class="text-xl font-black ml-1 text-orange-800">T</small></span>
+                    <!-- 5. 투입중량 (오렌지 강조 - 압도적 크기) -->
+                    <div class="data-cell w-weight bg-orange-50 border-x-[6px] border-orange-400">
+                        <span class="val-weight">${item.weight}<small class="text-2xl font-black ml-1 text-orange-900 italic">T</small></span>
                     </div>
 
                     <!-- 6. 작업내용 (에메랄드 강조) -->
-                    <div class="data-cell w-work bg-emerald-50/50 border-r-4 border-emerald-100">
-                        <span class="val-work">${item.work}</span>
+                    <div class="data-cell w-work bg-emerald-50/50 border-r-4 border-emerald-200">
+                        <span class="val-work font-black tracking-tight">${item.work}</span>
                     </div>
 
                     <!-- 7. 비고 (황색 강조) -->
                     <div class="data-cell w-remark bg-amber-50">
-                        <div class="val-remark">
-                            ${item.remark !== '-' ? '<span class="text-amber-600 mr-2 text-2xl">📌</span>' + item.remark : '-'}
+                        <div class="val-remark flex items-start gap-3">
+                            ${item.remark !== '-' ? '<span class="text-3xl mt-1">📌</span><span class="leading-tight">' + item.remark + '</span>' : '-'}
                         </div>
                     </div>
                 </div>
