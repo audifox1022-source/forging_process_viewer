@@ -92,6 +92,30 @@
             if (datePicker && !datePicker.value) datePicker.value = todayStr;
         }
 
+        // 특정 날짜 데이터를 추출하는 유틸리티
+        window.extractDataByDate = (dateStr) => {
+            const colIdx = window.dateColumns[dateStr];
+            if (colIdx === undefined || !window.currentSheetFullData) return null;
+            const procs = [];
+            for(let i=3; i<=63; i++) {
+                if(i === 33) continue;
+                const row = window.currentSheetFullData[i];
+                if(row && row[colIdx] && row[colIdx].toString().trim().length >= 4) {
+                    procs.push({
+                        rowIdx: i, id: row[colIdx],
+                        dim: (row[colIdx+1]||'').toString(), matOrder: (row[colIdx+2]||'').toString(),
+                        matIn: (row[colIdx+3]||'').toString(), qty: window.sanitizeNumeric(row[colIdx+4] || '1'),
+                        work: (row[colIdx+5]||'').toString(), remark: (row[colIdx+6]||'').toString(),
+                        weight: window.sanitizeNumeric(row[colIdx+7] || '')
+                    });
+                }
+            }
+            const dayLead = window.currentSheetFullData[33] ? (window.currentSheetFullData[33][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
+            const nightLead = window.currentSheetFullData[64] ? (window.currentSheetFullData[64][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
+            return { procs, dayLead, nightLead };
+        };
+
+        // 클라우드 배포 (현재 선택일을 '배포 기준일'로 설정)
         window.saveToCloud = async () => {
             if (!user || !db) {
                 showToast("인증 진행 중입니다.", "⏳");
@@ -102,12 +126,14 @@
                 return;
             }
 
+            const currentPickerDate = document.getElementById('date-picker').value;
             const sheetName = document.getElementById('sheet-selector').value;
             const datesToDeploy = Object.keys(window.dateColumns);
             
-            toggleLoading(true, `배포 중 (0/${datesToDeploy.length})...`);
+            toggleLoading(true, `배포 중 (전체 데이터 전송)...`);
             
             try {
+                // 1. 개별 공정 데이터 모두 저장
                 let count = 0;
                 for (const dateStr of datesToDeploy) {
                     const data = window.extractDataByDate(dateStr);
@@ -123,10 +149,17 @@
                             author: user.uid
                         });
                         count++;
-                        document.getElementById('loading-text').innerText = `배포 중 (${count}/${datesToDeploy.length})...`;
                     }
                 }
-                showToast(`✅ 배포 완료! 총 ${count}일 데이터 저장.`);
+
+                // 2. 배포 기준일(Cut-off) 저장
+                const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'config', 'status');
+                await setDoc(configRef, {
+                    publishedUntil: currentPickerDate,
+                    updatedAt: new Date().toISOString()
+                });
+
+                showToast(`✅ 배포 완료! 현장은 ${currentPickerDate}까지만 조회 가능합니다.`);
             } catch (e) {
                 console.error(e);
                 showToast("❌ 저장 권한 오류", "⚠️");
@@ -135,7 +168,8 @@
             }
         };
 
-        window.loadCurrentFromCloud = () => {
+        // 클라우드 조회 (배포 기준일 검증 포함)
+        window.loadCurrentFromCloud = async () => {
             if (!user || !db) return;
             const dateStr = document.getElementById('date-picker').value;
             if (!dateStr) return;
@@ -143,35 +177,55 @@
             if (unsubscribe) unsubscribe();
 
             toggleLoading(true, "조회 중...");
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', dateStr);
-            
-            unsubscribe = onSnapshot(docRef, (docSnap) => {
-                toggleLoading(false);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    const selector = document.getElementById('sheet-selector');
-                    let exists = false;
-                    for (let i = 0; i < selector.options.length; i++) {
-                        if (selector.options[i].value === data.sheet) { exists = true; break; }
+
+            try {
+                // 관리자가 로컬 파일을 들고 있는 상태라면 제한 없이 조회 허용
+                const isLocalSession = !!window.workbookObj;
+                
+                if (!isLocalSession) {
+                    const configSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'status'));
+                    const publishedUntil = configSnap.exists() ? configSnap.data().publishedUntil : '0000-00-00';
+
+                    // 요청 날짜가 배포 기준일 이후라면 차단
+                    if (dateStr > publishedUntil) {
+                        toggleLoading(false);
+                        const container = document.getElementById('process-list');
+                        container.innerHTML = `
+                            <div class="text-center py-16 bg-white rounded-xl border-2 border-dashed border-amber-200 mx-2">
+                                <div class="text-4xl mb-3">🔒</div>
+                                <p class="text-slate-800 font-black text-lg tracking-tighter uppercase mb-1 italic">Not Yet Published</p>
+                                <p class="text-slate-400 text-xs font-bold">${dateStr} 공정 계획은 아직 현장에 배포되지 않았습니다.</p>
+                            </div>
+                        `;
+                        showToast("미배포 공정 계획", "⚠️");
+                        return;
                     }
-                    if (!exists) {
-                        const opt = document.createElement('option');
-                        opt.value = data.sheet; opt.innerText = data.sheet;
-                        selector.appendChild(opt);
-                    }
-                    selector.value = data.sheet;
-                    window.renderFromCloud(JSON.parse(data.procs), data.dayLead, data.nightLead);
-                    showToast("☁️ 클라우드 데이터를 불러왔습니다.");
-                } else if (window.workbookObj) {
-                    window.analyzeAndPrepareData(); 
-                } else {
-                    const container = document.getElementById('process-list');
-                    container.innerHTML = `<div class="text-center py-12 text-slate-400 font-bold text-sm bg-white rounded-lg border-2 border-dashed mx-2">해당 날짜(${dateStr}) 배포 정보 없음</div>`;
                 }
-            }, (err) => {
+
+                // 배포된 데이터 조회
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', dateStr);
+                unsubscribe = onSnapshot(docRef, (docSnap) => {
+                    toggleLoading(false);
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        window.renderFromCloud(JSON.parse(data.procs), data.dayLead, data.nightLead);
+                        showToast("☁️ 배포 정보를 불러왔습니다.");
+                    } else if (window.workbookObj) {
+                        window.analyzeAndPrepareData(); 
+                    } else {
+                        const container = document.getElementById('process-list');
+                        container.innerHTML = `<div class="text-center py-12 text-slate-400 font-bold text-sm bg-white rounded-lg border-2 border-dashed mx-2">해당 날짜(${dateStr}) 배포 정보 없음</div>`;
+                    }
+                }, (err) => {
+                    toggleLoading(false);
+                    showToast("데이터 연동 실패", "❌");
+                });
+
+            } catch (err) {
+                console.error(err);
                 toggleLoading(false);
-                showToast("데이터 연동 실패", "❌");
-            });
+                showToast("조회 오류", "❌");
+            }
         };
 
         window.onload = () => initAuth();
@@ -196,8 +250,9 @@
         .w-remark { width: 220px; flex-shrink: 0; flex: 1; }
 
         .cell { @apply flex flex-col justify-center px-1 py-0.5 border-r border-slate-100; overflow: hidden; }
-        /* 헤더 셀 중앙 정렬 강화 */
-        .header-cell { @apply flex items-center justify-center text-center px-1 py-1 font-black text-[9px] border-r border-slate-700 uppercase tracking-tighter; }
+        
+        /* 헤더 중앙 정렬 및 가독성 업그레이드 */
+        .header-cell { @apply flex items-center justify-center text-center px-1 py-1.5 font-black text-[9px] border-r border-slate-700 uppercase tracking-tighter; }
 
         .val-order { font-size: 0.85rem; font-weight: 800; }
         .val-qty { font-size: 1.25rem; font-weight: 950; color: #2563eb; text-align: center; line-height: 1; }
@@ -205,7 +260,7 @@
         .val-sn-box { @apply mt-0 px-1.5 py-0 bg-white border border-blue-500 rounded-full font-black text-[8px] text-blue-700 shadow-sm inline-block; }
         .val-mat { font-size: 0.75rem; font-weight: 700; line-height: 1.05; }
         
-        /* 중량열 폰트 크기를 11px로 조정 및 가독성 업그레이드 */
+        /* 중량열 폰트 크기 11px 상향 및 가독성 강화 */
         .val-weight { font-size: 11px; font-weight: 950; color: #ea580c; text-align: center; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } 
         
         .val-work { font-size: 0.95rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1; }
@@ -262,7 +317,7 @@
                         <button onclick="changeDate(1)" class="bg-slate-200 text-slate-700 font-black px-1.5 py-0.5 rounded text-[9px]">다음</button>
                     </div>
                     <div id="admin-actions">
-                        <button onclick="window.saveToCloud()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-2 py-1 rounded text-[8px] shadow-sm flex items-center gap-0.5">☁️ 배포</button>
+                        <button onclick="window.saveToCloud()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-2 py-1 rounded text-[8px] shadow-sm flex items-center gap-0.5" title="파일 내 모든 공정 배포 및 선택일 기준 제한">☁️ 전체 배포</button>
                     </div>
                 </div>
             </div>
@@ -314,28 +369,6 @@
             const m = String(date.getMonth() + 1).padStart(2, '0');
             const d = String(date.getDate()).padStart(2, '0');
             return `${y}-${m}-${d}`;
-        };
-
-        window.extractDataByDate = (dateStr) => {
-            const colIdx = window.dateColumns[dateStr];
-            if (colIdx === undefined || !window.currentSheetFullData) return null;
-            const procs = [];
-            for(let i=3; i<=63; i++) {
-                if(i === 33) continue;
-                const row = window.currentSheetFullData[i];
-                if(row && row[colIdx] && row[colIdx].toString().trim().length >= 4) {
-                    procs.push({
-                        rowIdx: i, id: row[colIdx],
-                        dim: (row[colIdx+1]||'').toString(), matOrder: (row[colIdx+2]||'').toString(),
-                        matIn: (row[colIdx+3]||'').toString(), qty: window.sanitizeNumeric(row[colIdx+4] || '1'),
-                        work: (row[colIdx+5]||'').toString(), remark: (row[colIdx+6]||'').toString(),
-                        weight: window.sanitizeNumeric(row[colIdx+7] || '')
-                    });
-                }
-            }
-            const dayLead = window.currentSheetFullData[33] ? (window.currentSheetFullData[33][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
-            const nightLead = window.currentSheetFullData[64] ? (window.currentSheetFullData[64][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
-            return { procs, dayLead, nightLead };
         };
 
         async function handleExcelUpload(event) {
