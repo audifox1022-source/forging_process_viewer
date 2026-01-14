@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>태웅 TPMS - 실시간 현장 공정 뷰어</title>
+    <title>태웅 TPMS - 통합 공정 뷰어 (15,000T / 5,000T)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -13,7 +13,6 @@
         import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyCB43xipDeVyZVu4sAdtF0lGFIzzCfrsIc",
             authDomain: "forging-spec-manager.firebaseapp.com",
@@ -25,7 +24,6 @@
         };
 
         let user = null;
-        let unsubscribe = null;
         let auth, db, appId;
 
         const updateStatus = (text, type = "info") => {
@@ -51,13 +49,11 @@
                 onAuthStateChanged(auth, (currentUser) => {
                     user = currentUser;
                     if (user) {
-                        updateStatus("ONLINE SYNC ACTIVE", "active");
+                        updateStatus("ONLINE", "active");
                         const urlParams = new URLSearchParams(window.location.search);
                         const paramDate = urlParams.get('date');
-                        
                         setTodayDateInput();
                         document.getElementById('main-ui').classList.remove('hidden');
-
                         if (paramDate) {
                             document.getElementById('date-picker').value = paramDate;
                             window.loadCurrentFromCloud(); 
@@ -65,22 +61,15 @@
                             window.generateMainQR();
                         }
                     } else {
-                        updateStatus("AUTHENTICATING...", "info");
+                        updateStatus("AUTH...", "info");
                     }
                 });
 
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token && __initial_auth_token !== "") {
-                    try {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } catch (tokenError) {
-                        await signInAnonymously(auth);
-                    }
-                } else {
-                    await signInAnonymously(auth);
-                }
+                    try { await signInWithCustomToken(auth, __initial_auth_token); } catch (e) { await signInAnonymously(auth); }
+                } else { await signInAnonymously(auth); }
             } catch (error) {
-                console.error("Firebase Init Error:", error);
-                updateStatus("CLOUD ERROR", "error");
+                updateStatus("ERROR", "error");
             }
         };
 
@@ -96,112 +85,108 @@
             const container = document.getElementById('main-large-qr');
             const label = document.getElementById('main-qr-label');
             if (!container) return;
-
             container.innerHTML = '';
-            label.innerText = `${dateStr} 현장 공정 계획`;
-            
+            label.innerText = `${dateStr} 통합 공정 계획`;
             const url = window.location.origin + window.location.pathname + "?date=" + dateStr;
-            new QRCode(container, {
-                text: url,
-                width: 220,
-                height: 220,
-                colorDark : "#0f172a",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H
-            });
+            new QRCode(container, { text: url, width: 200, height: 200, colorDark : "#0f172a", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.H });
             document.getElementById('welcome-state').classList.remove('hidden');
         };
 
+        // 클라우드 배포 (선택된 부서 기준)
         window.saveToCloud = async () => {
-            if (!user || !db) {
-                showToast("인증 진행 중입니다.", "⏳");
-                return;
-            }
+            if (!user || !db) { showToast("인증 대기 중", "⏳"); return; }
             if (!window.currentSheetFullData || Object.keys(window.dateColumns).length === 0) {
-                showToast("배포할 데이터가 없습니다.", "📁");
-                return;
+                showToast("데이터 없음", "📁"); return;
             }
 
             const currentPickerDate = document.getElementById('date-picker').value;
             const sheetName = document.getElementById('sheet-selector').value;
+            const dept = document.getElementById('dept-selector').value; // 15000T or 5000T
             const datesToDeploy = Object.keys(window.dateColumns);
             
-            toggleLoading(true, `배포 중...`);
+            toggleLoading(true, `${dept} 배포 중...`);
             
             try {
                 for (const dateStr of datesToDeploy) {
-                    const data = window.extractDataByDate(dateStr);
+                    const data = window.extractDataByDate(dateStr, dept);
                     if (data && data.procs.length > 0) {
-                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', dateStr);
+                        // 문서 ID에 부서 정보 포함 (예: 15000T_2026-01-14)
+                        const docId = `${dept}_${dateStr}`;
+                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId);
                         await setDoc(docRef, {
-                            date: dateStr, sheet: sheetName,
+                            date: dateStr, dept: dept, sheet: sheetName,
                             procs: JSON.stringify(data.procs),
                             dayLead: data.dayLead, nightLead: data.nightLead,
-                            updatedAt: new Date().toISOString(), author: user.uid
+                            updatedAt: new Date().toISOString()
                         });
                     }
                 }
                 const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'config', 'status');
-                await setDoc(configRef, { publishedUntil: currentPickerDate, updatedAt: new Date().toISOString() });
-
-                showToast(`✅ 배포 완료! 현장 공개: ${currentPickerDate}까지`);
+                await setDoc(configRef, { publishedUntil: currentPickerDate, updatedAt: new Date().toISOString() }, { merge: true });
+                showToast(`✅ ${dept} 배포 완료!`);
             } catch (e) {
-                showToast("❌ 저장 권한 오류", "⚠️");
+                showToast("저장 오류", "⚠️");
             } finally {
                 toggleLoading(false);
             }
         };
 
+        // 클라우드 통합 조회 (모든 부서 데이터 로드)
         window.loadCurrentFromCloud = async () => {
             if (!user || !db) return;
             const dateStr = document.getElementById('date-picker').value;
             if (!dateStr) return;
 
-            if (unsubscribe) unsubscribe();
-            toggleLoading(true, "조회 중...");
+            toggleLoading(true, "통합 조회 중...");
+            const container = document.getElementById('process-list');
+            container.innerHTML = ''; 
 
             try {
                 const isLocalSession = !!window.workbookObj;
                 if (!isLocalSession) {
                     const configSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'config', 'status'));
                     const publishedUntil = configSnap.exists() ? configSnap.data().publishedUntil : '0000-00-00';
-
                     if (dateStr > publishedUntil) {
                         toggleLoading(false);
                         document.getElementById('welcome-state').classList.add('hidden');
-                        const container = document.getElementById('process-list');
-                        container.innerHTML = `
-                            <div class="text-center py-16 bg-white rounded-xl border-2 border-dashed border-amber-200 mx-2">
-                                <div class="text-4xl mb-3">🔒</div>
-                                <p class="text-slate-800 font-black text-lg tracking-tighter uppercase mb-1 italic">Not Yet Published</p>
-                                <p class="text-slate-400 text-xs font-bold">${dateStr} 공정 계획은 아직 배포되지 않았습니다.</p>
-                            </div>`;
+                        container.innerHTML = `<div class="text-center py-16 bg-white rounded-xl border-2 border-dashed border-amber-200 mx-2">
+                            <div class="text-4xl mb-3">🔒</div>
+                            <p class="text-slate-800 font-black text-lg italic uppercase">Not Published</p>
+                            <p class="text-slate-400 text-xs font-bold">${dateStr}은 아직 배포되지 않았습니다.</p>
+                        </div>`;
                         return;
                     }
                 }
 
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', dateStr);
-                unsubscribe = onSnapshot(docRef, (docSnap) => {
-                    toggleLoading(false);
+                // 15,000T와 5,000T 각각 조회
+                const depts = ["15000T", "5000T"];
+                let foundAny = false;
+
+                for (const dept of depts) {
+                    const docId = `${dept}_${dateStr}`;
+                    const docSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId));
+                    
                     if (docSnap.exists()) {
                         document.getElementById('welcome-state').classList.add('hidden');
                         const data = docSnap.data();
-                        window.renderFromCloud(JSON.parse(data.procs), data.dayLead, data.nightLead);
-                        showToast("☁️ 배포 정보를 불러왔습니다.");
-                    } else if (window.workbookObj) {
+                        window.renderDeptSection(dept, JSON.parse(data.procs), data.dayLead, data.nightLead);
+                        foundAny = true;
+                    }
+                }
+
+                if (!foundAny) {
+                    if (window.workbookObj) {
                         window.analyzeAndPrepareData(); 
                     } else {
                         document.getElementById('welcome-state').classList.add('hidden');
-                        const container = document.getElementById('process-list');
                         container.innerHTML = `<div class="text-center py-12 text-slate-400 font-bold text-sm bg-white rounded-lg border-2 border-dashed mx-2">해당 날짜(${dateStr}) 배포 정보 없음</div>`;
                     }
-                }, (err) => {
-                    toggleLoading(false);
-                    showToast("데이터 연동 실패", "❌");
-                });
+                }
+                showToast("☁️ 데이터 로드 완료");
             } catch (err) {
-                toggleLoading(false);
                 showToast("조회 오류", "❌");
+            } finally {
+                toggleLoading(false);
             }
         };
 
@@ -210,191 +195,153 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800;900&display=swap');
         body { font-family: 'Pretendard', sans-serif; background-color: #f1f5f9; color: #0f172a; letter-spacing: -0.05em; overflow-x: hidden; margin: 0; }
-        
         .container-full { width: 100%; padding: 0 0.15rem; }
-        .scroll-container { overflow-x: auto; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; }
-        
+        .scroll-container { overflow-x: auto; width: 100%; border-radius: 4px; border: 1px solid #cbd5e1; margin-bottom: 0.5rem; }
         .row-content { display: inline-flex; min-width: 1250px; background: white; border-bottom: 1px solid #e2e8f0; align-items: stretch; }
         .header-row { display: inline-flex; min-width: 1250px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
-
-        .w-order { width: 95px; flex-shrink: 0; }
-        .w-qty { width: 40px; flex-shrink: 0; } 
-        .w-dim { width: 300px; flex-shrink: 0; }
-        .w-mat { width: 130px; flex-shrink: 0; } 
-        .w-weight { width: 85px; flex-shrink: 0; }
-        .w-work { width: 380px; flex-shrink: 0; }
+        .w-order { width: 95px; flex-shrink: 0; } .w-qty { width: 40px; flex-shrink: 0; } .w-dim { width: 300px; flex-shrink: 0; }
+        .w-mat { width: 130px; flex-shrink: 0; } .w-weight { width: 85px; flex-shrink: 0; } .w-work { width: 380px; flex-shrink: 0; }
         .w-remark { width: 220px; flex-shrink: 0; flex: 1; }
-
         .cell { @apply flex flex-col justify-center px-1 py-0.5 border-r border-slate-100; overflow: hidden; }
         .header-cell { @apply flex items-center justify-center text-center px-1 py-1.5 font-black text-[9px] border-r border-slate-700 uppercase tracking-tighter; }
-
-        .val-order { font-size: 0.85rem; font-weight: 800; }
-        .val-qty { font-size: 1.25rem; font-weight: 950; color: #2563eb; text-align: center; line-height: 1; }
-        .val-dim { font-size: 1rem; font-weight: 800; line-height: 1; }
-        .val-sn-box { @apply mt-0 px-1.5 py-0 bg-white border border-blue-500 rounded-full font-black text-[8px] text-blue-700 shadow-sm inline-block; }
-        .val-mat { font-size: 0.75rem; font-weight: 700; line-height: 1.05; }
-        
-        /* 투입중량 데이터 16px 상향 및 오버플로우 방지 로직 */
-        .val-weight { 
-            font-size: 16px; 
-            font-weight: 950; 
-            color: #ea580c; 
-            text-align: center; 
-            line-height: 1.1; 
-            white-space: nowrap; 
-            overflow: hidden; 
-            text-overflow: clip; /* 칸을 넘칠 때 잘리도록 설정하여 다른 칸 침범 방지 */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-        } 
-        
-        .val-work { font-size: 0.95rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1; }
-        .val-remark { font-size: 0.8rem; font-weight: 700; color: #92400e; white-space: normal; }
-
+        .val-order { font-size: 0.85rem; font-weight: 800; } .val-qty { font-size: 1.25rem; font-weight: 950; color: #2563eb; text-align: center; }
+        .val-dim { font-size: 1rem; font-weight: 800; line-height: 1; } .val-sn-box { @apply mt-0 px-1.5 py-0 bg-white border border-blue-500 rounded-full font-black text-[8px] text-blue-700 inline-block; }
+        .val-weight { font-size: 16px; font-weight: 950; color: #ea580c; text-align: center; white-space: nowrap; overflow: hidden; } 
+        .val-work { font-size: 0.95rem; font-weight: 800; color: #064e3b; line-height: 1; }
         .shift-banner { @apply w-full py-1 px-3 mb-0.5 rounded flex justify-between items-center shadow-sm border-b-2; }
-        .ctrl-panel { @apply bg-white p-1 rounded shadow-sm border border-slate-200 mb-1; }
-        
-        #custom-toast { position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); z-index: 1000; display: none; }
-        ::-webkit-scrollbar { height: 6px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .dept-title { @apply bg-slate-200 text-slate-800 font-black px-3 py-1 mb-1 rounded-full text-[10px] inline-block uppercase tracking-widest border border-slate-300; }
     </style>
 </head>
 <body class="pb-4">
-
     <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-sm border-b border-blue-600 px-2 py-1 flex justify-between items-center">
         <h1 class="text-sm font-black italic tracking-tighter uppercase">Taewoong <span class="text-blue-500">TPMS</span></h1>
         <div class="flex items-center gap-1">
-            <button onclick="shareWebsite()" class="bg-slate-800 hover:bg-slate-700 p-0.5 rounded border border-slate-700 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-400"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>
-            </button>
-            <label for="excel-upload" class="bg-blue-600 hover:bg-blue-500 px-2.5 py-1 rounded text-[8px] font-black cursor-pointer shadow-sm uppercase tracking-tight">업로드</label>
+            <select id="dept-selector" class="bg-slate-800 text-white text-[9px] font-bold rounded px-1 py-0.5 border border-slate-700 outline-none">
+                <option value="15000T">15,000톤</option>
+                <option value="5000T">5,000톤</option>
+            </select>
+            <label for="excel-upload" class="bg-blue-600 hover:bg-blue-500 px-2 py-1 rounded text-[8px] font-black cursor-pointer shadow-sm uppercase tracking-tight">업로드</label>
             <input id="excel-upload" type="file" class="hidden" accept=".xls,.xlsx" onchange="handleExcelUpload(event)">
         </div>
     </header>
 
     <main class="container-full mt-1">
-        <div id="welcome-state" class="hidden bg-white rounded-2xl p-6 text-center border-4 border-blue-600 shadow-2xl mt-4 max-w-sm mx-auto animate-in fade-in zoom-in duration-300">
-            <h2 class="text-lg font-black text-slate-800 mb-0.5 uppercase tracking-tighter italic">Forging Hub</h2>
-            <p id="main-qr-label" class="text-blue-600 font-black text-[10px] mb-4 uppercase tracking-widest">날짜별 공정 계획 QR</p>
+        <div id="welcome-state" class="hidden bg-white rounded-2xl p-6 text-center border-4 border-blue-600 shadow-2xl mt-4 max-w-sm mx-auto">
+            <h2 class="text-lg font-black text-slate-800 mb-0.5 uppercase italic">Forging Hub</h2>
+            <p id="main-qr-label" class="text-blue-600 font-black text-[10px] mb-4 uppercase tracking-widest">통합 공정 계획 QR</p>
             <div id="main-large-qr" class="flex justify-center bg-white p-3 rounded-xl border border-slate-100 shadow-inner mb-6"></div>
-            <div class="grid grid-cols-2 gap-2 mb-4">
-                <button onclick="copyShareLink()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-black py-2.5 rounded-xl text-[10px] uppercase transition-all flex items-center justify-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                    링크 복사
-                </button>
-                <button onclick="shareLinkMobile()" class="bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 rounded-xl text-[10px] uppercase transition-all flex items-center justify-center gap-1 shadow-md">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>
-                    기기 공유
-                </button>
+            <div class="grid grid-cols-2 gap-2">
+                <button onclick="copyShareLink()" class="bg-slate-100 text-slate-700 font-black py-2.5 rounded-xl text-[10px] uppercase">복사</button>
+                <button onclick="shareLinkMobile()" class="bg-blue-600 text-white font-black py-2.5 rounded-xl text-[10px] uppercase">공유</button>
             </div>
-            <p class="text-slate-400 text-[9px] font-bold leading-tight uppercase">QR을 스캔하면 해당 날짜의 공정 정보로<br>자동 이동합니다.</p>
         </div>
 
         <div id="main-ui" class="hidden">
-            <div class="ctrl-panel">
+            <div class="bg-white p-1 rounded shadow-sm border border-slate-200 mb-1">
                 <div class="flex flex-wrap gap-1 items-end">
                     <div class="flex-1 min-w-[90px]">
-                        <label class="text-[6px] font-black text-blue-700 ml-1 uppercase tracking-widest block">조회 날짜</label>
-                        <input type="date" id="date-picker" class="w-full p-0.5 bg-slate-50 border border-slate-200 rounded font-black text-xs focus:border-blue-500 outline-none" onchange="window.generateMainQR()">
+                        <label class="text-[6px] font-black text-blue-700 ml-1 uppercase block">날짜</label>
+                        <input type="date" id="date-picker" class="w-full p-0.5 bg-slate-50 border border-slate-200 rounded font-black text-xs" onchange="window.generateMainQR()">
                     </div>
                     <div class="flex-1 min-w-[90px]">
-                        <label class="text-[6px] font-black text-blue-700 ml-1 uppercase tracking-widest block">시트</label>
-                        <select id="sheet-selector" class="w-full p-0.5 bg-slate-50 border border-slate-200 rounded font-black text-xs focus:border-blue-500 outline-none" onchange="processExcelData()"></select>
+                        <label class="text-[6px] font-black text-blue-700 ml-1 uppercase block">시트</label>
+                        <select id="sheet-selector" class="w-full p-0.5 bg-slate-50 border border-slate-200 rounded font-black text-xs" onchange="processExcelData()"></select>
                     </div>
                     <div class="flex gap-0.5">
                         <button onclick="changeDate(-1)" class="bg-slate-200 text-slate-700 font-black px-1.5 py-0.5 rounded text-[9px]">이전</button>
-                        <button onclick="window.loadCurrentFromCloud()" class="bg-blue-600 text-white font-black px-5 py-1 rounded text-[10px] shadow-sm active:scale-95 transition-transform">조회</button>
+                        <button onclick="window.loadCurrentFromCloud()" class="bg-blue-600 text-white font-black px-5 py-0.5 rounded text-[10px] shadow-sm">조회</button>
                         <button onclick="changeDate(1)" class="bg-slate-200 text-slate-700 font-black px-1.5 py-0.5 rounded text-[9px]">다음</button>
                     </div>
-                    <div id="admin-actions">
-                        <button onclick="window.saveToCloud()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-2 py-1 rounded text-[8px] shadow-sm flex items-center gap-0.5">☁️ 배포</button>
-                    </div>
+                    <button onclick="window.saveToCloud()" class="bg-emerald-600 text-white font-black px-2 py-1 rounded text-[8px]">☁️ 배포</button>
                 </div>
             </div>
-            <div id="process-list" class="space-y-2 pb-12"></div>
+            <div id="process-list" class="space-y-4 pb-12"></div>
         </div>
     </main>
 
-    <div id="loading-overlay" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center z-[100]">
+    <div id="loading-overlay" class="fixed inset-0 bg-slate-900/80 hidden flex items-center justify-center z-[100]">
         <div class="bg-white px-5 py-3 rounded-lg shadow-xl flex flex-col items-center">
             <div class="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-1"></div>
-            <p id="loading-text" class="font-black text-slate-800 text-[10px] uppercase">Processing...</p>
+            <p id="loading-text" class="font-black text-slate-800 text-[10px]">Processing...</p>
         </div>
     </div>
 
-    <div id="custom-toast">
-        <div class="bg-slate-900 text-white px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2 border border-slate-700">
-            <span id="toast-icon">✅</span>
-            <span id="toast-message" class="font-black text-[9px] uppercase">SUCCESS</span>
-        </div>
+    <div id="custom-toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-2 rounded-full hidden z-[200]">
+        <span id="toast-icon">✅</span> <span id="toast-message" class="font-black text-[10px] uppercase">SUCCESS</span>
     </div>
 
     <script>
         window.currentSheetFullData = null;
         window.dateColumns = {};
-        window.currentProcessList = [];
-
-        window.sanitizeNumeric = (val) => {
-            if (val === undefined || val === null) return '';
-            return val.toString().replace(/(\d+)[rR]/g, '$1').trim();
-        };
 
         const excelDateToISO = (serial) => {
             const date = new Date(1899, 11, 30);
             date.setDate(date.getDate() + serial);
-            const y = date.getFullYear();
-            const m = String(date.getMonth() + 1).padStart(2, '0');
-            const d = String(date.getDate()).padStart(2, '0');
-            return `${y}-${m}-${d}`;
+            return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
         };
 
-        window.extractDataByDate = (dateStr) => {
+        window.extractDataByDate = (dateStr, dept) => {
             const colIdx = window.dateColumns[dateStr];
             if (colIdx === undefined || !window.currentSheetFullData) return null;
             const procs = [];
-            for(let i=3; i<=63; i++) {
-                if(i === 33) continue;
+            const is5000T = (dept === "5000T");
+            
+            // 부서별 데이터 범위 설정
+            const startRow = is5000T ? 2 : 3;
+            const endRow = is5000T ? 50 : 63; // 5000T는 데이터 양에 따라 조정 가능
+            const shiftSplit = is5000T ? 25 : 33; // 교대 분할점 (임시)
+
+            for(let i = startRow; i <= endRow; i++) {
+                if(i === shiftSplit) continue;
                 const row = window.currentSheetFullData[i];
                 if(row && row[colIdx] && row[colIdx].toString().trim().length >= 4) {
                     procs.push({
                         rowIdx: i, id: row[colIdx],
                         dim: (row[colIdx+1]||'').toString(), matOrder: (row[colIdx+2]||'').toString(),
-                        matIn: (row[colIdx+3]||'').toString(), qty: window.sanitizeNumeric(row[colIdx+4] || '1'),
+                        matIn: (row[colIdx+3]||'').toString(), qty: row[colIdx+4] || '1',
                         work: (row[colIdx+5]||'').toString(), remark: (row[colIdx+6]||'').toString(),
-                        weight: window.sanitizeNumeric(row[colIdx+7] || '')
+                        weight: row[colIdx+7] || ''
                     });
                 }
             }
-            const dayLead = window.currentSheetFullData[33] ? (window.currentSheetFullData[33][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
-            const nightLead = window.currentSheetFullData[64] ? (window.currentSheetFullData[64][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
+            // 리드 정보 추출 (내용에 따라 자동 감지)
+            const dayLeadRow = is5000T ? 24 : 33;
+            const nightLeadRow = is5000T ? 48 : 64;
+            const dayLead = window.currentSheetFullData[dayLeadRow] ? (window.currentSheetFullData[dayLeadRow][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
+            const nightLead = window.currentSheetFullData[nightLeadRow] ? (window.currentSheetFullData[nightLeadRow][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
+            
             return { procs, dayLead, nightLead };
         };
 
         async function handleExcelUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
+            
+            // 파일명 분석하여 부서 자동 선택
+            const selector = document.getElementById('dept-selector');
+            if (file.name.includes("P5") || file.name.includes("5000")) selector.value = "5000T";
+            else selector.value = "15000T";
+
             toggleLoading(true, "분석 중...");
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
                     const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                     window.workbookObj = workbook;
-                    const selector = document.getElementById('sheet-selector');
-                    selector.innerHTML = '';
+                    const sheetSel = document.getElementById('sheet-selector');
+                    sheetSel.innerHTML = '';
                     const validSheets = workbook.SheetNames.filter(name => name.includes('계획서') || name.includes('월'));
                     const now = new Date();
-                    const currentMonthPart = `${String(now.getFullYear()).slice(-2)}년 ${now.getMonth() + 1}월`;
-                    let bestMatch = validSheets[0];
+                    const monthKey = `${String(now.getFullYear()).slice(-2)}년 ${now.getMonth() + 1}월`;
+                    let match = validSheets[0];
                     validSheets.forEach(name => {
                         const opt = document.createElement('option');
                         opt.value = name; opt.innerText = name;
-                        selector.appendChild(opt);
-                        if (name.includes(currentMonthPart)) bestMatch = name;
+                        sheetSel.appendChild(opt);
+                        if (name.includes(monthKey)) match = name;
                     });
-                    if (bestMatch) selector.value = bestMatch;
-                    document.getElementById('welcome-state').classList.add('hidden'); 
+                    if (match) sheetSel.value = match;
+                    document.getElementById('welcome-state').classList.add('hidden');
                     document.getElementById('main-ui').classList.remove('hidden');
                     processExcelData();
                 } catch (err) { showToast("오류", "❌"); }
@@ -406,125 +353,91 @@
         function processExcelData() {
             const sheetName = document.getElementById('sheet-selector').value;
             if (!sheetName || !window.workbookObj) return;
-            const worksheet = window.workbookObj.Sheets[sheetName];
-            window.currentSheetFullData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            window.currentSheetFullData = XLSX.utils.sheet_to_json(window.workbookObj.Sheets[sheetName], { header: 1 });
             window.dateColumns = {};
-            let found = false;
-            for (let r = 0; r < Math.min(window.currentSheetFullData.length, 5); r++) {
+            // 날짜 행 자동 스캔 (1~5행 사이)
+            for (let r = 0; r < 5; r++) {
                 const row = window.currentSheetFullData[r];
                 if (!row) continue;
                 row.forEach((cell, idx) => {
-                    if (typeof cell === 'number' && cell > 40000 && cell < 60000) {
-                        window.dateColumns[excelDateToISO(cell)] = idx;
-                        found = true;
-                    }
+                    if (typeof cell === 'number' && cell > 40000 && cell < 60000) window.dateColumns[excelDateToISO(cell)] = idx;
                 });
-                if (found) break;
+                if (Object.keys(window.dateColumns).length > 0) break;
             }
             const datePicker = document.getElementById('date-picker');
-            const now = new Date();
-            const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-            if (window.dateColumns[todayStr]) datePicker.value = todayStr;
+            const today = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}`;
+            if (window.dateColumns[today]) datePicker.value = today;
             else if (Object.keys(window.dateColumns).length > 0) datePicker.value = Object.keys(window.dateColumns).sort()[0];
-            
-            document.getElementById('welcome-state').classList.add('hidden'); 
-            window.analyzeAndPrepareData();
+            window.loadCurrentFromCloud();
         }
 
-        window.analyzeAndPrepareData = () => {
-            const dateStr = document.getElementById('date-picker').value;
-            const data = window.extractDataByDate(dateStr);
-            if (!data) {
-                document.getElementById('process-list').innerHTML = `<div class="text-center py-12 text-slate-400 font-bold text-sm bg-white rounded-lg border-2 border-dashed mx-2">해당 날짜 정보 없음</div>`;
-                return;
-            }
-            window.renderFromCloud(data.procs, data.dayLead, data.nightLead);
-        }
-
-        window.renderFromCloud = (procs, dayLead, nightLead) => {
+        window.renderDeptSection = (dept, procs, dayLead, nightLead) => {
             const container = document.getElementById('process-list');
-            container.innerHTML = '';
-            const dayItems = procs.filter(p => p.rowIdx <= 32);
-            const nightItems = procs.filter(p => p.rowIdx >= 34);
-            renderShiftSection(`☀️ 주간 [${dayLead}]`, dayItems, "blue", container);
-            renderShiftSection(`🌙 야간 [${nightLead}]`, nightItems, "slate", container);
+            const deptHeader = document.createElement('div');
+            deptHeader.className = "dept-title";
+            deptHeader.innerText = dept === "15000T" ? "🏗️ 15,000톤 부서" : "⚙️ 5,000톤 부서";
+            container.appendChild(deptHeader);
+
+            const is5000T = (dept === "5000T");
+            const shiftSplit = is5000T ? 25 : 33;
+            const dayItems = procs.filter(p => p.rowIdx < shiftSplit);
+            const nightItems = procs.filter(p => p.rowIdx > shiftSplit);
+
+            renderShiftTable(`☀️ 주간 [${dayLead}]`, dayItems, "blue", container);
+            renderShiftTable(`🌙 야간 [${nightLead}]`, nightItems, "slate", container);
         };
 
-        function renderShiftSection(title, items, theme, container) {
-            const section = document.createElement('div');
+        function renderShiftTable(title, items, theme, container) {
+            const wrap = document.createElement('div');
             const bgColor = theme === 'blue' ? 'bg-blue-700' : 'bg-slate-800';
             const borderColor = theme === 'blue' ? 'border-blue-600' : 'border-slate-800';
-            section.innerHTML = `
+            wrap.innerHTML = `
                 <div class="shift-banner ${bgColor} ${borderColor} text-white">
-                    <h2 class="text-[11px] font-black italic tracking-tighter">${title}</h2>
+                    <h2 class="text-[11px] font-black italic">${title}</h2>
                     <span class="text-[8px] font-bold opacity-70">${items.length} 건</span>
                 </div>
                 <div class="scroll-container shadow-sm bg-white">
                     <div class="header-row">
-                        <div class="header-cell w-order bg-slate-950">수주번호</div>
-                        <div class="header-cell w-qty bg-blue-800">수량</div>
-                        <div class="header-cell w-dim bg-blue-900">수주치수 / SN</div>
-                        <div class="header-cell w-mat bg-slate-950">재질</div>
-                        <div class="header-cell w-weight bg-orange-700">투입중량</div>
-                        <div class="header-cell w-work bg-emerald-900">작업 상세</div>
-                        <div class="header-cell w-remark bg-amber-800">비고</div>
+                        <div class="header-cell w-order">수주번호</div><div class="header-cell w-qty">수량</div>
+                        <div class="header-cell w-dim">수주치수 / SN</div><div class="header-cell w-mat">재질</div>
+                        <div class="header-cell w-weight">투입중량</div><div class="header-cell w-work">작업 상세</div>
+                        <div class="header-cell w-remark">비고</div>
                     </div>
                     <div class="flex flex-col">
-                        ${items.length > 0 ? items.map(p => createRowHTML(p)).join('') : '<div class="bg-white py-2 text-center text-slate-300 text-[9px] uppercase italic">Empty</div>'}
+                        ${items.length > 0 ? items.map(p => `
+                            <div class="row-content">
+                                <div class="cell w-order bg-slate-900 text-white text-center font-bold text-[10px]">${p.id}</div>
+                                <div class="cell w-qty text-center font-black text-blue-600 text-[12px]">${p.qty}</div>
+                                <div class="cell w-dim text-center">
+                                    <span class="val-dim">${p.dim.split(/S\/N/i)[0].trim()}</span>
+                                    ${p.dim.includes('S/N') ? `<div class="val-sn-box">S/N ${p.dim.split(/S\/N/i)[1].trim()}</div>` : ''}
+                                </div>
+                                <div class="cell w-mat text-[8px] font-bold">O: ${p.matOrder}<br>G: ${p.matIn}</div>
+                                <div class="cell w-weight val-weight">${p.weight}</div>
+                                <div class="cell w-work val-work">${p.work}</div>
+                                <div class="cell w-remark text-[8px]">${p.remark}</div>
+                            </div>
+                        `).join('') : '<div class="p-2 text-center text-slate-300 text-[9px]">데이터 없음</div>'}
                     </div>
                 </div>`;
-            container.appendChild(section);
+            container.appendChild(wrap);
         }
-
-        function createRowHTML(p) {
-            const snParts = p.dim.split(/S\/N|s\/n/i);
-            const dimMain = snParts[0].trim();
-            const snTag = snParts.length > 1 ? `S/N ${snParts[1].replace(/[:]/g,'').trim()}` : '';
-            return `
-                <div class="row-content">
-                    <div class="cell w-order bg-slate-900 text-white text-center"><span class="val-order tracking-tighter">${p.id}</span></div>
-                    <div class="cell w-qty text-center bg-blue-50/20"><span class="val-qty tracking-tighter">${p.qty}</span></div>
-                    <div class="cell w-dim bg-blue-50/10 text-center items-center">
-                        <span class="val-dim leading-none">${dimMain}</span>
-                        ${snTag ? `<div class="val-sn-box"><span class="val-sn">${snTag}</span></div>` : ''}
-                    </div>
-                    <div class="cell w-mat bg-white">
-                        <div class="flex flex-col">
-                            <span class="val-mat border-b border-slate-50 mb-0.5"><small class="text-[6px] text-blue-500 mr-0.5 font-black">O</small>${p.matOrder}</span>
-                            <span class="val-mat"><small class="text-[6px] text-slate-400 mr-0.5 font-black">G</small>${p.matIn}</span>
-                        </div>
-                    </div>
-                    <div class="cell w-weight bg-orange-50/50 border-x border-orange-100 text-center"><span class="val-weight">${p.weight}</span></div>
-                    <div class="cell w-work bg-emerald-50/50"><span class="val-work font-black tracking-tighter leading-tight">${p.work}</span></div>
-                    <div class="cell w-remark bg-amber-50/50"><span class="val-remark">${p.remark !== '-' ? '📌 ' + p.remark : '-'}</span></div>
-                </div>`;
-        }
-
-        window.getShareUrl = () => {
-            const dateStr = document.getElementById('date-picker').value;
-            return window.location.origin + window.location.pathname + "?date=" + dateStr;
-        };
 
         window.copyShareLink = () => {
-            const url = window.getShareUrl();
+            const url = window.location.origin + window.location.pathname + "?date=" + document.getElementById('date-picker').value;
             const t = document.createElement("textarea"); t.value = url; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t);
-            showToast("링크가 복사되었습니다.", "🔗");
+            showToast("링크 복사됨", "🔗");
         };
 
         window.shareLinkMobile = async () => {
-            const dateStr = document.getElementById('date-picker').value;
-            const url = window.getShareUrl();
-            if (navigator.share) navigator.share({ title: '태웅 공정계획', text: dateStr, url });
+            if (navigator.share) navigator.share({ title: '태웅 통합공정', url: window.location.origin + window.location.pathname + "?date=" + document.getElementById('date-picker').value });
             else window.copyShareLink();
         };
 
         window.shareWebsite = () => {
             const url = window.location.origin + window.location.pathname;
             if (navigator.share) navigator.share({ title: '태웅 TPMS', url });
-            else {
-                const t = document.createElement("textarea"); t.value = url; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t);
-                showToast("주소 복사됨");
-            }
+            else window.copyShareLink();
         };
 
         function toggleLoading(show, text) {
@@ -537,16 +450,14 @@
             const t = document.getElementById('custom-toast');
             document.getElementById('toast-message').innerText = msg;
             document.getElementById('toast-icon').innerText = icon;
-            t.style.display = 'block'; setTimeout(() => { t.style.display = 'none'; }, 2000);
+            t.classList.remove('hidden'); setTimeout(() => { t.classList.add('hidden'); }, 2000);
         }
 
         function changeDate(days) {
             const p = document.getElementById('date-picker');
             const d = new Date(p.value); d.setDate(d.getDate() + days);
-            const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0');
-            p.value = `${y}-${m}-${day}`; 
-            window.generateMainQR(); 
-            window.loadCurrentFromCloud();
+            p.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; 
+            window.generateMainQR(); window.loadCurrentFromCloud();
         }
     </script>
 </body>
