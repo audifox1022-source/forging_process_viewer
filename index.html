@@ -433,14 +433,26 @@
                 try {
                     const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                     window.workbookObj = workbook;
+                    
                     const selector = document.getElementById('sheet-selector');
                     selector.innerHTML = '';
+                    
                     const validSheets = workbook.SheetNames.filter(name => name.includes('계획서') || name.includes('월'));
+                    
+                    // 현재 연도와 월을 기반으로 타겟 시트명 생성 (예: 26년 1월)
+                    const now = new Date();
+                    const currentMonthPart = `${String(now.getFullYear()).slice(-2)}년 ${now.getMonth() + 1}월`;
+                    
+                    let bestMatch = validSheets[0];
                     validSheets.forEach(name => {
                         const opt = document.createElement('option');
                         opt.value = name; opt.innerText = name;
                         selector.appendChild(opt);
+                        if (name.includes(currentMonthPart)) bestMatch = name;
                     });
+                    
+                    if (bestMatch) selector.value = bestMatch;
+                    
                     document.getElementById('welcome-state').classList.add('hidden');
                     document.getElementById('main-ui').classList.remove('hidden');
                     processExcelData();
@@ -470,7 +482,7 @@
                 return `${y}-${m}-${d}`;
             };
 
-            // 날짜가 포함된 행을 찾기 위해 시트 전체 스캔 (보통 첫 번째 또는 두 번째 줄)
+            // 날짜 행 찾기 (상단 5행 이내 탐색)
             let foundDateRow = false;
             for (let r = 0; r < Math.min(window.currentSheetFullData.length, 5); r++) {
                 const row = window.currentSheetFullData[r];
@@ -485,11 +497,15 @@
                 if (foundDateRow) break;
             }
 
-            // 오늘 날짜가 파일에 있는지 확인하고, 없으면 파일 내 첫 번째 날짜로 이동
+            // 오늘 날짜 자동 포커스
             const availableDates = Object.keys(window.dateColumns).sort();
             const datePicker = document.getElementById('date-picker');
-            if (availableDates.length > 0) {
-                // 현재 피커에 선택된 날짜가 파일에 없다면 파일 내 첫날로 변경
+            const now = new Date();
+            const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+            
+            if (window.dateColumns[todayStr]) {
+                datePicker.value = todayStr;
+            } else if (availableDates.length > 0) {
                 if (!window.dateColumns[datePicker.value]) {
                     datePicker.value = availableDates[0];
                 }
@@ -503,7 +519,7 @@
             const data = window.extractDataByDate(dateStr);
             if (!data) {
                 const container = document.getElementById('process-list');
-                container.innerHTML = `<div class="text-center py-16 text-slate-400 font-bold text-lg bg-white rounded-2xl border-2 border-dashed mx-2">해당 날짜(${dateStr})의 공정 정보가 파일에 없습니다.</div>`;
+                container.innerHTML = `<div class="text-center py-16 text-slate-400 font-bold text-lg bg-white rounded-2xl border-2 border-dashed mx-2">해당 날짜(${dateStr})의 공정 정보가 시트에 없습니다.</div>`;
                 return;
             }
             
