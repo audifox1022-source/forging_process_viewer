@@ -12,47 +12,66 @@
         import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // 전역 상태 변수
+       const firebaseConfig = {
+  apiKey: "AIzaSyCB43xipDeVyZVu4sAdtF0lGFIzzCfrsIc",
+  authDomain: "forging-spec-manager.firebaseapp.com",
+  projectId: "forging-spec-manager",
+  storageBucket: "forging-spec-manager.firebasestorage.app",
+  messagingSenderId: "299326184664",
+  appId: "1:299326184664:web:eb0b8b0751527869504bad",
+  measurementId: "G-KYJ5XFCNWL"
+};
+        // 환경 변수가 없을 경우 사용자가 직접 입력한 값을 우선 사용합니다.
+        let config = null;
+        try {
+            const envConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+            if (envConfig) {
+                config = typeof envConfig === 'string' ? JSON.parse(envConfig) : envConfig;
+            }
+        } catch (e) { console.warn("Environment Config Error"); }
+
+        // 여기에 직접 Firebase Console에서 복사한 설정을 넣으셔도 됩니다.
+        const manualConfig = {
+            apiKey: "",
+            authDomain: "",
+            projectId: "",
+            storageBucket: "",
+            messagingSenderId: "",
+            appId: ""
+        };
+
+        const firebaseConfig = config || (manualConfig.apiKey ? manualConfig : null);
+        // ==========================================================
+
         let user = null;
         let unsubscribe = null;
         let auth, db, appId;
 
-        // UI 상태 업데이트 함수
         function updateStatus(text, type = "info") {
             const badge = document.getElementById('sync-status');
             if (!badge) return;
             badge.innerText = text;
-            
             const styles = {
                 active: "bg-emerald-900 text-emerald-400 border-emerald-500/20",
                 error: "bg-red-900 text-red-100 border-red-500/40",
                 info: "bg-slate-800 text-slate-400 border-slate-700",
                 warning: "bg-amber-900 text-amber-200 border-amber-500/20"
             };
-            
             badge.className = `hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded border uppercase tracking-tight ${styles[type] || styles.info}`;
         }
 
-        // 인증 및 클라우드 초기화 (유연한 환경 변수 처리)
         const initAuth = async () => {
-            try {
-                // 1. Firebase Config 로드 (문자열 또는 객체 대응)
-                let firebaseConfig;
-                const rawConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-                
-                if (rawConfig && rawConfig !== "undefined") {
-                    firebaseConfig = typeof rawConfig === 'string' ? JSON.parse(rawConfig) : rawConfig;
-                } else {
-                    throw new Error("CONFIG_MISSING");
-                }
+            if (!firebaseConfig) {
+                updateStatus("CONFIG MISSING", "error");
+                return;
+            }
 
-                // 2. Firebase 앱 초기화
+            try {
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
                 appId = typeof __app_id !== 'undefined' ? __app_id : 'taewoong-tpms-v1';
 
-                // 3. 인증 상태 감시
                 onAuthStateChanged(auth, (currentUser) => {
                     if (currentUser) {
                         user = currentUser;
@@ -64,7 +83,6 @@
                     }
                 });
 
-                // 4. 익명 인증 시도
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
@@ -72,19 +90,8 @@
                 }
 
             } catch (error) {
-                console.error("Firebase Auth Error:", error);
-                if (error.message === "CONFIG_MISSING") {
-                    updateStatus("CONFIG MISSING", "error");
-                    showToast("클라우드 설정이 누락되었습니다. 관리자 확인 필요.", "⚠️");
-                } else {
-                    updateStatus("CONNECTION ERROR", "error");
-                    showToast("클라우드 연결 중 오류가 발생했습니다.", "❌");
-                }
-                
-                // 클라우드 실패 시에도 로컬 업로드 기능은 유지하기 위해 UI 활성화
-                document.getElementById('welcome-state').innerHTML += `
-                    <p class="text-red-500 text-xs mt-4 font-bold">※ 클라우드 비활성 모드: 파일 업로드만 가능합니다.</p>
-                `;
+                console.error("Auth Init Error:", error);
+                updateStatus("CLOUD ERROR", "error");
             }
         };
 
@@ -95,28 +102,25 @@
             if (datePicker && !datePicker.value) datePicker.value = todayStr;
         }
 
-        // 클라우드 배포 (저장)
         window.saveToCloud = async () => {
             if (!user || !db) {
-                showToast("클라우드 서버에 연결되지 않았습니다.", "⏳");
+                showToast("클라우드가 연결되지 않았습니다.", "⏳");
                 return;
             }
-            
             const processList = window.currentProcessList || [];
             if(processList.length === 0) {
-                showToast("배포할 데이터가 없습니다. 파일을 업로드하세요.", "📁");
+                showToast("배포할 데이터가 없습니다.", "📁");
                 return;
             }
-
             const sheetName = document.getElementById('sheet-selector').value;
             const dateStr = document.getElementById('date-picker').value;
             if(!dateStr || !sheetName) return;
 
-            toggleLoading(true, "서버에 공정 데이터를 전송 중...");
+            toggleLoading(true, "서버에 전송 중...");
             try {
                 const docId = `${sheetName}_${dateStr}`;
+                // 필수 규칙 1 준수: /artifacts/{appId}/public/data/{collectionName}/{docId}
                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId);
-                
                 await setDoc(docRef, {
                     date: dateStr,
                     sheet: sheetName,
@@ -125,16 +129,15 @@
                     nightLead: window.currentNightLead || '미정',
                     updatedAt: new Date().toISOString()
                 });
-                showToast("✅ 클라우드 배포 성공! 현장에서 즉시 확인 가능합니다.");
+                showToast("✅ 배포 완료! 현장에서 실시간 확인 가능합니다.");
             } catch (e) {
-                console.error("Cloud Save Error:", e);
-                showToast("저장 권한이 없습니다.", "❌");
+                console.error(e);
+                showToast("❌ 저장 권한 오류", "⚠️");
             } finally {
                 toggleLoading(false);
             }
         };
 
-        // 클라우드 조회 (로드)
         window.loadCurrentFromCloud = () => {
             if (!user || !db) return;
             const sheetName = document.getElementById('sheet-selector').value;
@@ -142,7 +145,6 @@
             if(!dateStr || !sheetName) return;
 
             if (unsubscribe) unsubscribe();
-
             const docId = `${sheetName}_${dateStr}`;
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId);
             
@@ -150,16 +152,13 @@
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     window.renderFromCloud(JSON.parse(data.procs), data.dayLead, data.nightLead);
-                    showToast("☁️ 최신 배포 데이터를 수신했습니다.");
+                    showToast("☁️ 최신 데이터를 수신했습니다.");
                 } else if (window.workbookObj) {
                     window.analyzeAndPrepareData(); 
                 } else {
-                    document.getElementById('process-list').innerHTML = `<div class="text-center py-20 text-slate-400 font-bold text-xl bg-white rounded-3xl border-2 border-dashed">배포된 데이터가 없습니다. [파일 업로드]를 진행하세요.</div>`;
+                    document.getElementById('process-list').innerHTML = `<div class="text-center py-20 text-slate-400 font-bold text-xl bg-white rounded-3xl border-2 border-dashed">배포된 데이터가 없습니다.</div>`;
                 }
-            }, (err) => {
-                console.error("Cloud Sync Error:", err);
-                updateStatus("SYNC ERROR", "error");
-            });
+            }, (err) => console.warn("Snapshot error", err));
         };
 
         window.onload = () => initAuth();
@@ -168,13 +167,10 @@
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800;900&display=swap');
         body { font-family: 'Pretendard', sans-serif; background-color: #f1f5f9; color: #0f172a; letter-spacing: -0.05em; overflow-x: hidden; margin: 0; }
         .container-full { width: 100%; padding: 0 0.2rem; }
-        
-        /* 레이아웃 압축 및 밸런스 */
         .scroll-container { overflow-x: auto; width: 100%; border-radius: 6px; border: 1px solid #cbd5e1; }
         .row-content { display: inline-flex; min-width: 1650px; background: white; border-bottom: 1px solid #e2e8f0; align-items: stretch; }
         .header-row { display: inline-flex; min-width: 1650px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
 
-        /* 컬럼별 최적화 너비 */
         .w-order { width: 150px; flex-shrink: 0; }
         .w-qty { width: 60px; flex-shrink: 0; } 
         .w-dim { width: 450px; flex-shrink: 0; }
@@ -186,19 +182,17 @@
         .cell { @apply flex flex-col justify-center px-2 py-1.5 border-r border-slate-100; }
         .header-cell { @apply flex items-center justify-center px-2 py-2 font-black text-[11px] border-r border-slate-700 uppercase tracking-tighter; }
 
-        /* 폰트 조화로운 크기 조정 */
-        .val-order { font-size: 1.1rem; font-weight: 800; }
-        .val-qty { font-size: 1.6rem; font-weight: 950; color: #2563eb; line-height: 1; text-align: center; }
-        .val-dim { font-size: 1.3rem; font-weight: 800; line-height: 1.1; }
+        .val-order { font-size: 1.15rem; font-weight: 800; }
+        .val-qty { font-size: 1.6rem; font-weight: 950; color: #2563eb; text-align: center; }
+        .val-dim { font-size: 1.35rem; font-weight: 800; line-height: 1.1; }
         .val-sn-box { @apply mt-1 px-3 py-0.5 bg-white border border-blue-500 rounded-full font-black text-[10px] text-blue-700 shadow-sm inline-block; }
-        .val-mat { font-size: 0.9rem; font-weight: 700; line-height: 1.2; }
-        .val-weight { font-size: 1.7rem; font-weight: 950; color: #ea580c; line-height: 1; white-space: nowrap; text-align: center; } 
-        .val-work { font-size: 1.2rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1.1; }
-        .val-remark { font-size: 0.85rem; font-weight: 700; color: #92400e; white-space: normal; }
+        .val-mat { font-size: 0.95rem; font-weight: 700; line-height: 1.2; }
+        .val-weight { font-size: 1.7rem; font-weight: 950; color: #ea580c; text-align: center; } 
+        .val-work { font-size: 1.25rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1.1; }
+        .val-remark { font-size: 0.9rem; font-weight: 700; color: #92400e; white-space: normal; }
 
         .shift-banner { @apply w-full py-2 px-4 mb-1 rounded-lg flex justify-between items-center shadow-sm border-b-[8px]; }
         .ctrl-panel { @apply bg-white p-2 rounded-xl shadow-md border border-slate-200 mb-2; }
-        
         #custom-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; display: none; animation: slideUp 0.3s ease-out; }
         @keyframes slideUp { from { bottom: 0; opacity: 0; } to { bottom: 30px; opacity: 1; } }
         ::-webkit-scrollbar { height: 10px; }
@@ -210,7 +204,7 @@
     <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-md border-b-2 border-blue-600 px-4 py-1.5 flex justify-between items-center">
         <h1 class="text-lg font-black italic tracking-tighter uppercase">Taewoong <span class="text-blue-500">TPMS</span></h1>
         <div class="flex items-center gap-3">
-            <span id="sync-status" class="hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase tracking-tight italic">Waiting for Auth...</span>
+            <span id="sync-status" class="hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase tracking-tight italic">Checking Config...</span>
             <label for="excel-upload" class="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded text-[9px] font-black cursor-pointer shadow-md transition-all uppercase tracking-tight">파일 업로드</label>
             <input id="excel-upload" type="file" class="hidden" accept=".xls,.xlsx" onchange="handleExcelUpload(event)">
         </div>
@@ -218,10 +212,10 @@
 
     <main class="container-full mt-2">
         <div id="welcome-state" class="bg-white rounded-2xl p-8 text-center border border-blue-100 shadow-xl mt-4 max-w-xl mx-auto">
-            <div class="text-5xl mb-3">🛠️</div>
-            <h2 class="text-2xl font-black text-slate-800 mb-1 italic uppercase tracking-tighter">Forge Order Master</h2>
+            <div class="text-5xl mb-3">📡</div>
+            <h2 class="text-2xl font-black text-slate-800 mb-1 italic uppercase tracking-tighter">Connection Hub</h2>
             <p class="text-slate-400 text-sm font-bold tracking-tighter leading-tight">
-                현장에서는 별도 파일 없이 **[조회]** 버튼을 클릭하세요.<br>
+                클라우드 설정을 완료하면 현장에 데이터가 동기화됩니다.<br>
                 관리자는 파일을 업로드 후 **[배포하기]**를 눌러주세요.
             </p>
         </div>
@@ -230,17 +224,17 @@
             <div class="ctrl-panel">
                 <div class="flex flex-wrap gap-2 items-end">
                     <div class="flex-1 min-w-[110px]">
-                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase tracking-widest">Select Date</label>
+                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase tracking-widest text-center block">Date</label>
                         <input type="date" id="date-picker" class="w-full p-1 bg-slate-50 border border-slate-200 rounded font-black text-base focus:border-blue-500 outline-none shadow-inner">
                     </div>
                     <div class="flex-1 min-w-[110px]">
-                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase tracking-widest">Target Sheet</label>
+                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase tracking-widest text-center block">Sheet</label>
                         <select id="sheet-selector" class="w-full p-1 bg-slate-50 border border-slate-200 rounded font-black text-base focus:border-blue-500 outline-none shadow-inner"></select>
                     </div>
                     <div class="flex gap-1">
-                        <button onclick="changeDate(-1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition shadow-sm">이전</button>
+                        <button onclick="changeDate(-1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition">이전</button>
                         <button onclick="window.loadCurrentFromCloud()" class="bg-blue-600 text-white font-black px-6 py-1.5 rounded text-sm shadow-lg hover:bg-blue-700 active:scale-95 transition-all">조회</button>
-                        <button onclick="changeDate(1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition shadow-sm">다음</button>
+                        <button onclick="changeDate(1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition">다음</button>
                     </div>
                     <div id="admin-actions" class="hidden">
                         <button onclick="window.saveToCloud()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-1.5 rounded text-[10px] shadow-sm transition-all flex items-center gap-1">☁️ 배포하기</button>
@@ -251,7 +245,6 @@
         </div>
     </main>
 
-    <!-- 로딩 애니메이션 -->
     <div id="loading-overlay" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center z-[100]">
         <div class="bg-white px-8 py-6 rounded-2xl shadow-2xl flex flex-col items-center">
             <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
@@ -259,11 +252,10 @@
         </div>
     </div>
 
-    <!-- 토스트 알림 -->
     <div id="custom-toast">
         <div class="bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-slate-700">
             <span id="toast-icon">✅</span>
-            <span id="toast-message" class="font-black text-xs tracking-tight">작업 성공</span>
+            <span id="toast-message" class="font-black text-xs tracking-tight uppercase">SUCCESS</span>
         </div>
     </div>
 
@@ -274,11 +266,11 @@
         window.currentNightLead = '미정';
         let dateColumns = {};
 
-        // r 문자 제거를 위한 정교한 정제 함수
+        // r 문자 제거를 위한 정밀 정제 함수
         function sanitizeNumeric(val) {
             if (val === undefined || val === null) return '';
             const str = val.toString();
-            // 숫자 뒤에 붙은 'r' 또는 'R'만 타겟팅하여 제거 (Material 등의 단어 보호)
+            // 숫자 뒤에 붙은 r 제거
             return str.replace(/(\d+)[rR]/g, '$1').trim();
         }
 
@@ -360,10 +352,10 @@
                         dim: (row[colIdx+1]||'').toString(), 
                         matOrder: (row[colIdx+2]||'').toString(),
                         matIn: (row[colIdx+3]||'').toString(), 
-                        qty: sanitizeNumeric(row[colIdx+4] || '1'), // r 제거 적용
+                        qty: sanitizeNumeric(row[colIdx+4] || '1'),
                         work: (row[colIdx+5]||'').toString(), 
                         remark: (row[colIdx+6]||'').toString(),
-                        weight: sanitizeNumeric(row[colIdx+7] || '') // r 제거 적용
+                        weight: sanitizeNumeric(row[colIdx+7] || '')
                     });
                 }
             }
@@ -390,7 +382,7 @@
             section.innerHTML = `
                 <div class="shift-banner ${bgColor} ${borderColor} text-white">
                     <h2 class="text-base sm:text-lg font-black italic tracking-tighter">${title}</h2>
-                    <span class="text-[10px] font-bold opacity-70">${items.length} PCS</span>
+                    <span class="text-[10px] font-bold opacity-70">${items.length} 건</span>
                 </div>
                 <div class="scroll-container shadow-sm bg-white">
                     <div class="header-row">
@@ -424,8 +416,8 @@
                     </div>
                     <div class="cell w-mat bg-white">
                         <div class="flex flex-col">
-                            <span class="val-mat border-b border-slate-50 mb-0.5"><small class="text-[7px] text-blue-500 mr-1 font-black uppercase">Order</small>${p.matOrder}</span>
-                            <span class="val-mat"><small class="text-[7px] text-slate-400 mr-1 font-black uppercase">Grade</small>${p.matIn}</span>
+                            <span class="val-mat border-b border-slate-50 mb-0.5"><small class="text-[7px] text-blue-500 mr-1 font-black uppercase tracking-tighter">Order</small>${p.matOrder}</span>
+                            <span class="val-mat"><small class="text-[7px] text-slate-400 mr-1 font-black uppercase tracking-tighter">Grade</small>${p.matIn}</span>
                         </div>
                     </div>
                     <div class="cell w-weight bg-orange-50 border-x border-orange-100 text-center"><span class="val-weight">${p.weight}</span></div>
