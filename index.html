@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>태웅 TPMS - 클라우드 공정 뷰어</title>
+    <title>태웅 TPMS - 고가독성 클라우드 뷰어</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Firebase SDK -->
@@ -12,17 +12,14 @@
         import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // Global Firebase Config (Environment Provided)
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'taewoong-tpms-v1';
 
-        // State
         let user = null;
 
-        // Initialize Auth
         const initAuth = async () => {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -38,31 +35,26 @@
             }
         };
 
-        // Cloud Storage Functions
         window.saveToCloud = async () => {
             if(!user || !window.currentProcessList) return;
             const sheetName = document.getElementById('sheet-selector').value;
             const dateStr = document.getElementById('date-picker').value;
             if(!dateStr) return;
 
-            toggleLoading(true, "클라우드 배포 중...");
+            toggleLoading(true, "클라우드 저장 중...");
             try {
                 const docId = `${sheetName}_${dateStr}`;
-                const dataToSave = {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId), {
                     date: dateStr,
                     sheet: sheetName,
                     procs: JSON.stringify(window.currentProcessList),
                     dayLead: window.currentDayLead,
                     nightLead: window.currentNightLead,
                     updatedAt: new Date().toISOString()
-                };
-                
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId);
-                await setDoc(docRef, dataToSave);
-                showToast("✅ 클라우드 저장 완료! 현장에서 즉시 확인 가능합니다.");
+                });
+                showToast("✅ 저장 완료! 현장에 데이터가 동기화되었습니다.");
             } catch (e) {
-                console.error(e);
-                showToast("❌ 저장 권한이 없습니다.");
+                showToast("❌ 권한 오류: 저장에 실패했습니다.");
             }
             toggleLoading(false);
         };
@@ -72,131 +64,109 @@
             const dateStr = document.getElementById('date-picker').value;
             if(!dateStr || !sheetName) return;
 
-            const docId = `${sheetName}_${dateStr}`;
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId);
-            
-            onSnapshot(docRef, (docSnap) => {
+            onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', `${sheetName}_${dateStr}`), (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     window.renderFromCloud(JSON.parse(data.procs), data.dayLead, data.nightLead);
                 }
-            }, (err) => console.error("데이터 동기화 오류:", err));
+            });
         }
 
-        window.loadCurrentFromCloud = () => {
-            if (user) listenToCloudData();
-        };
-
+        window.loadCurrentFromCloud = () => { if (user) listenToCloudData(); };
         window.onload = () => initAuth();
     </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800;900&display=swap');
-        body { font-family: 'Pretendard', sans-serif; background-color: #eff6ff; color: #0f172a; letter-spacing: -0.06em; overflow-x: hidden; }
+        body { font-family: 'Pretendard', sans-serif; background-color: #f1f5f9; color: #0f172a; letter-spacing: -0.05em; overflow-x: hidden; margin: 0; }
         
-        .container-full { width: 100%; max-width: 100%; padding: 0 0.5rem; }
+        .container-full { width: 100%; padding: 0 0.25rem; }
         
-        /* 고밀도 스크롤 레이아웃 */
-        .scroll-container { overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; }
-        .data-row { display: inline-flex; min-width: 1800px; background: white; border-bottom: 2px solid #cbd5e1; align-items: stretch; }
-        .data-header { display: inline-flex; min-width: 1800px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
+        /* 가로 스크롤 레이아웃 및 겹침 방지 너비 고정 */
+        .scroll-container { overflow-x: auto; width: 100%; border-radius: 12px; }
+        .row-content { display: inline-flex; min-width: 1950px; background: white; border-bottom: 2px solid #e2e8f0; align-items: stretch; }
+        .header-row { display: inline-flex; min-width: 1950px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
 
-        /* 셀 너비 및 가로 겹침 방지 */
-        .cell-order { width: 220px; flex-shrink: 0; }
-        .cell-qty { width: 110px; flex-shrink: 0; }
-        .cell-dim { width: 500px; flex-shrink: 0; }
-        .cell-mat { width: 260px; flex-shrink: 0; }
-        .cell-weight { width: 220px; flex-shrink: 0; }
-        .cell-work { width: 550px; flex-shrink: 0; }
-        .cell-remark { width: 400px; flex-shrink: 0; flex-grow: 1; }
+        /* 각 항목별 고정 너비 설정 (글자 겹침 방지 핵심) */
+        .w-order { width: 200px; flex-shrink: 0; }
+        .w-qty { width: 110px; flex-shrink: 0; }
+        .w-dim { width: 520px; flex-shrink: 0; }
+        .w-mat { width: 280px; flex-shrink: 0; }
+        .w-weight { width: 220px; flex-shrink: 0; }
+        .w-work { width: 580px; flex-shrink: 0; }
+        .w-remark { width: 400px; flex-shrink: 0; }
 
-        .cell-content { @apply flex flex-col justify-center px-4 py-3 border-r border-slate-200; }
-        .header-content { @apply flex items-center justify-center px-4 py-3 font-black text-base border-r border-slate-700 uppercase tracking-tighter; }
+        .cell { @apply flex flex-col justify-center px-4 py-2 border-r border-slate-200; }
+        .header-cell { @apply flex items-center justify-center px-4 py-3 font-black text-sm border-r border-slate-700 uppercase tracking-tighter; }
 
-        /* 폰트 크기 최적화 (오버플로우 방지) */
-        .val-order { font-size: 1.6rem; font-weight: 900; }
-        .val-qty { font-size: 2.8rem; font-weight: 950; color: #2563eb; line-height: 1; }
-        .val-dim { font-size: 1.9rem; font-weight: 900; line-height: 1; }
-        .val-sn-tag { @apply mt-2 px-6 py-1 bg-white border-2 border-blue-500 rounded-full font-black text-xl text-blue-700 shadow-md inline-block; }
-        .val-mat { font-size: 1.4rem; font-weight: 700; }
-        .val-weight { font-size: 3.2rem; font-weight: 950; color: #ea580c; line-height: 1; overflow: hidden; white-space: nowrap; }
-        .val-work { font-size: 1.7rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1.15; }
-        .val-remark { font-size: 1.3rem; font-weight: 700; color: #92400e; white-space: normal; }
+        /* 가독성 증폭 폰트 설정 */
+        .val-order { font-size: 1.4rem; font-weight: 900; }
+        .val-qty { font-size: 2.6rem; font-weight: 950; color: #2563eb; line-height: 1; }
+        .val-dim { font-size: 1.7rem; font-weight: 900; line-height: 1.1; }
+        .val-sn-box { @apply mt-1 px-5 py-1 bg-white border-2 border-blue-500 rounded-full font-black text-lg text-blue-700 shadow-md inline-block; }
+        .val-mat { font-size: 1.3rem; font-weight: 700; }
+        .val-weight { font-size: 3.1rem; font-weight: 950; color: #ea580c; line-height: 1; white-space: nowrap; }
+        .val-work { font-size: 1.6rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1.2; }
+        .val-remark { font-size: 1.2rem; font-weight: 700; color: #92400e; white-space: normal; }
 
-        .shift-banner { @apply w-full py-4 px-8 mb-3 rounded-2xl flex justify-between items-center shadow-lg border-b-[12px]; }
+        /* 섹션 배너 및 컨트롤 압축 */
+        .shift-banner { @apply w-full py-3 px-6 mb-2 rounded-xl flex justify-between items-center shadow-md border-b-[10px]; }
+        .ctrl-panel { @apply bg-white p-3 rounded-2xl shadow-lg border border-slate-200 mb-4; }
         
-        /* 브라우저 컨트롤 최적화 */
-        input[type="date"], select { @apply shadow-inner; }
-
-        /* 스크롤바 정밀화 */
-        ::-webkit-scrollbar { height: 12px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; }
-        ::-webkit-scrollbar-thumb { background: #64748b; border-radius: 10px; border: 3px solid #f1f5f9; }
+        /* 스크롤바 */
+        ::-webkit-scrollbar { height: 14px; }
+        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 20px; border: 3px solid #f1f5f9; }
     </style>
 </head>
 <body class="pb-10">
 
-    <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-xl border-b-4 border-blue-600 px-6 py-3">
-        <div class="flex justify-between items-center">
-            <h1 class="text-2xl font-black italic tracking-tighter">TAEWOONG <span class="text-blue-500 underline decoration-2">TPMS</span></h1>
-            <div class="flex items-center gap-4">
-                <div id="sync-status" class="hidden sm:block bg-emerald-950/80 text-emerald-400 text-[10px] font-black px-2 py-1 rounded border border-emerald-500/20">LIVE SYNC READY</div>
-                <label for="excel-upload" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-xl text-xs font-black cursor-pointer shadow-lg transition-all flex items-center gap-2">
-                    📁 엑셀 업로드
-                </label>
-                <input id="excel-upload" type="file" class="hidden" accept=".xls,.xlsx" onchange="handleExcelUpload(event)">
-            </div>
+    <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-md border-b-4 border-blue-600 px-4 py-2 flex justify-between items-center">
+        <h1 class="text-xl font-black italic tracking-tighter">TAEWOONG <span class="text-blue-500">TPMS</span></h1>
+        <div class="flex items-center gap-3">
+            <span id="sync-status" class="hidden sm:block text-[9px] font-black px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/20">CLOUD SYNC</span>
+            <label for="excel-upload" class="bg-blue-600 hover:bg-blue-500 px-4 py-1.5 rounded-lg text-[11px] font-black cursor-pointer shadow transition-all">📁 파일 업로드(관리자)</label>
+            <input id="excel-upload" type="file" class="hidden" accept=".xls,.xlsx" onchange="handleExcelUpload(event)">
         </div>
     </header>
 
-    <main class="container-full mt-4">
-        <!-- 업로드 유도 화면 -->
-        <div id="welcome-state" class="bg-white rounded-[2.5rem] p-12 text-center border-2 border-blue-100 shadow-xl mt-10 max-w-3xl mx-auto">
-            <div class="text-7xl mb-6">🔩</div>
-            <h2 class="text-4xl font-black text-slate-800 mb-4 tracking-tighter italic">P15000 Forge Viewer</h2>
-            <p class="text-slate-500 text-xl font-medium leading-relaxed">
-                계획 파일을 업로드하거나,<br>
-                관리자가 배포한 <span class="text-blue-600 font-black">실시간 공정 데이터</span>를 조회하세요.
-            </p>
+    <main class="container-full mt-2">
+        <div id="welcome-state" class="bg-white rounded-3xl p-10 text-center border border-blue-100 shadow-xl mt-8 max-w-2xl mx-auto">
+            <div class="text-6xl mb-4">⚒️</div>
+            <h2 class="text-3xl font-black text-slate-800 mb-2 italic">Forging Work Instruction</h2>
+            <p class="text-slate-500 text-lg font-bold">엑셀을 업로드하거나 클라우드 데이터를 확인하세요.</p>
         </div>
 
-        <div id="main-ui" class="hidden space-y-6">
-            <!-- 고밀도 필터 영역 -->
-            <div class="bg-white p-5 rounded-3xl shadow-xl border-2 border-slate-200">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                    <div>
-                        <label class="text-xs font-black text-blue-700 mb-1 block ml-1 uppercase">📅 작업 날짜</label>
-                        <input type="date" id="date-picker" onchange="loadCurrentFromCloud()" 
-                               class="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none font-black text-xl cursor-pointer focus:border-blue-500">
+        <div id="main-ui" class="hidden space-y-4">
+            <!-- 압축된 필터 영역 -->
+            <div class="ctrl-panel">
+                <div class="flex flex-wrap gap-4 items-end">
+                    <div class="flex-1 min-w-[140px]">
+                        <label class="text-[10px] font-black text-blue-700 ml-1 uppercase">📅 날짜</label>
+                        <input type="date" id="date-picker" onchange="loadCurrentFromCloud()" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-black text-lg focus:border-blue-500 outline-none">
                     </div>
-                    <div>
-                        <label class="text-xs font-black text-blue-700 mb-1 block ml-1 uppercase">📄 계획 시트</label>
-                        <select id="sheet-selector" onchange="loadCurrentFromCloud()" 
-                                class="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-2xl outline-none font-black text-xl appearance-none cursor-pointer focus:border-blue-500">
-                        </select>
+                    <div class="flex-1 min-w-[140px]">
+                        <label class="text-[10px] font-black text-blue-700 ml-1 uppercase">📄 시트</label>
+                        <select id="sheet-selector" onchange="loadCurrentFromCloud()" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-black text-lg focus:border-blue-500 outline-none"></select>
                     </div>
-                    <div class="md:col-span-2 flex gap-2">
-                        <button onclick="changeDate(-1)" class="flex-1 bg-slate-800 text-white font-black py-4 rounded-2xl text-lg hover:bg-black transition">이전</button>
-                        <button onclick="changeDate(1)" class="flex-1 bg-slate-800 text-white font-black py-4 rounded-2xl text-lg hover:bg-black transition">다음</button>
+                    <div class="flex gap-2">
+                        <button onclick="changeDate(-1)" class="bg-slate-800 text-white font-black px-5 py-2 rounded-lg text-sm hover:bg-black transition">이전</button>
+                        <button onclick="changeDate(1)" class="bg-slate-800 text-white font-black px-5 py-2 rounded-lg text-sm hover:bg-black transition">다음</button>
                     </div>
-                </div>
-                <!-- 관리자용 저장 버튼 -->
-                <div id="admin-actions" class="mt-4 pt-4 border-t border-dashed border-slate-200 hidden">
-                    <button onclick="saveToCloud()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 rounded-xl text-lg shadow-lg flex items-center justify-center gap-3 transition-all">
-                        🚀 현재 계획을 현장으로 즉시 배포 (클라우드 저장)
-                    </button>
+                    <div id="admin-actions" class="hidden">
+                        <button onclick="saveToCloud()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-6 py-2 rounded-lg text-sm shadow-md transition-all flex items-center gap-2">☁️ 현장 배포</button>
+                    </div>
                 </div>
             </div>
 
-            <!-- 데이터 리스트 -->
-            <div id="process-list" class="space-y-12 pb-20"></div>
+            <!-- 공정 목록 -->
+            <div id="process-list" class="space-y-10 pb-20"></div>
         </div>
     </main>
 
-    <!-- 로딩 화면 -->
-    <div id="loading-overlay" class="fixed inset-0 bg-slate-900/90 backdrop-blur-xl hidden flex items-center justify-center z-[100]">
-        <div class="bg-white px-16 py-12 rounded-[4rem] shadow-2xl flex flex-col items-center">
-            <div class="w-20 h-20 border-8 border-blue-600 border-t-transparent rounded-full animate-spin mb-8"></div>
-            <p id="loading-text" class="font-black text-slate-800 text-3xl">로딩 중...</p>
+    <!-- 로딩 스피너 -->
+    <div id="loading-overlay" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md hidden flex items-center justify-center z-[100]">
+        <div class="bg-white px-10 py-8 rounded-3xl shadow-2xl flex flex-col items-center">
+            <div class="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p id="loading-text" class="font-black text-slate-800 text-xl italic">DATA PARSING...</p>
         </div>
     </div>
 
@@ -207,7 +177,6 @@
         window.currentNightLead = '미정';
         let dateColumns = {};
 
-        // 엑셀 업로드 처리
         async function handleExcelUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -215,9 +184,7 @@
 
             const reader = new FileReader();
             reader.onload = function(e) {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                
+                const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                 const selector = document.getElementById('sheet-selector');
                 selector.innerHTML = '';
                 workbook.SheetNames.forEach(name => {
@@ -239,7 +206,6 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // 시트 데이터 분석
         function processExcelData() {
             const sheetName = document.getElementById('sheet-selector').value;
             const worksheet = window.workbookObj.Sheets[sheetName];
@@ -253,13 +219,11 @@
                 }
             });
 
-            // 오늘 날짜 자동 선택 로직
+            // 오늘 날짜 자동 로직
             const today = new Date().toISOString().split('T')[0];
             const availableDates = Object.keys(dateColumns).sort();
-            
             if (availableDates.length > 0) {
-                const targetDate = availableDates.includes(today) ? today : availableDates[0];
-                document.getElementById('date-picker').value = targetDate;
+                document.getElementById('date-picker').value = availableDates.includes(today) ? today : availableDates[0];
                 analyzeAndPrepareData();
             }
         }
@@ -270,44 +234,34 @@
             if (colIdx === undefined) return;
 
             window.currentProcessList = [];
-            // 4~33행, 35~64행
             for(let i=3; i<=63; i++) {
-                if(i === 33) continue; 
+                if(i === 33) continue;
                 const row = currentSheetFullData[i];
                 if(row && row[colIdx] && row[colIdx].toString().trim().length >= 4) {
                     window.currentProcessList.push({
-                        rowIdx: i,
-                        id: row[colIdx],
-                        dim: (row[colIdx+1]||'').toString(),
-                        matOrder: (row[colIdx+2]||'').toString(),
-                        matIn: (row[colIdx+3]||'').toString(),
-                        qty: (row[colIdx+4]||'1').toString(),
-                        work: (row[colIdx+5]||'').toString(),
-                        remark: (row[colIdx+6]||'').toString(),
+                        rowIdx: i, id: row[colIdx],
+                        dim: (row[colIdx+1]||'').toString(), matOrder: (row[colIdx+2]||'').toString(),
+                        matIn: (row[colIdx+3]||'').toString(), qty: (row[colIdx+4]||'1').toString(),
+                        work: (row[colIdx+5]||'').toString(), remark: (row[colIdx+6]||'').toString(),
                         weight: (row[colIdx+7]||'').toString()
                     });
                 }
             }
             
-            // 34행(index 33)과 65행(index 64)에서 작업자 추출
             window.currentDayLead = currentSheetFullData[33] ? (currentSheetFullData[33][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
             window.currentNightLead = currentSheetFullData[64] ? (currentSheetFullData[64][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
             
             window.renderFromCloud(window.currentProcessList, window.currentDayLead, window.currentNightLead);
         }
 
-        // 클라우드 데이터 또는 분석 데이터 렌더링
         window.renderFromCloud = (procs, dayLead, nightLead) => {
             const container = document.getElementById('process-list');
             container.innerHTML = '';
             document.getElementById('welcome-state').classList.add('hidden');
             document.getElementById('main-ui').classList.remove('hidden');
 
-            const dayItems = procs.filter(p => p.rowIdx <= 32);
-            const nightItems = procs.filter(p => p.rowIdx >= 34);
-
-            renderShiftSection(`☀️ 주간공정 [${dayLead}]`, dayItems, "blue", container);
-            renderShiftSection(`🌙 야간공정 [${nightLead}]`, nightItems, "slate", container);
+            renderShiftSection(`☀️ 주간공정 [${dayLead}]`, procs.filter(p => p.rowIdx <= 32), "blue", container);
+            renderShiftSection(`🌙 야간공정 [${nightLead}]`, procs.filter(p => p.rowIdx >= 34), "slate", container);
         };
 
         function renderShiftSection(title, items, theme, container) {
@@ -317,22 +271,21 @@
             
             section.innerHTML = `
                 <div class="shift-banner ${bgColor} ${borderColor} text-white">
-                    <h2 class="text-4xl sm:text-5xl font-black italic tracking-tighter">${title}</h2>
-                    <span class="text-2xl font-black opacity-60">${items.length} 건</span>
+                    <h2 class="text-3xl font-black italic">${title}</h2>
+                    <span class="text-xl font-bold opacity-60">${items.length} PCS</span>
                 </div>
-                <div class="scroll-container shadow-2xl rounded-3xl border-4 border-slate-200">
-                    <div class="data-header">
-                        <div class="header-content cell-order bg-slate-950">수주번호</div>
-                        <div class="header-content cell-qty bg-blue-800">수량</div>
-                        <div class="header-content cell-dim bg-blue-900 italic">수주치수 / S/N</div>
-                        <div class="header-content cell-mat bg-slate-900">재질 (수주/사내)</div>
-                        <div class="header-content cell-weight bg-orange-700">투입중량</div>
-                        <div class="header-content cell-work bg-emerald-900">작업 지시 상세</div>
-                        <div class="header-content cell-remark bg-amber-800">현장 특이사항</div>
+                <div class="scroll-container shadow-xl border-2 border-slate-300">
+                    <div class="header-row">
+                        <div class="header-cell w-order bg-slate-950">수주번호</div>
+                        <div class="header-cell w-qty bg-blue-800">수량</div>
+                        <div class="header-cell w-dim bg-blue-900 italic">수주치수 / S/N</div>
+                        <div class="header-cell w-mat bg-slate-900">재질</div>
+                        <div class="header-cell w-weight bg-orange-700">투입중량</div>
+                        <div class="header-cell w-work bg-emerald-900">작업 상세</div>
+                        <div class="header-cell w-remark bg-amber-800">비고</div>
                     </div>
                     <div class="flex flex-col">
-                        ${items.length > 0 ? items.map(p => createRowHTML(p)).join('') : 
-                          '<div class="bg-white p-10 text-center text-2xl font-bold text-slate-300">작업 없음</div>'}
+                        ${items.length > 0 ? items.map(p => createRowHTML(p)).join('') : '<div class="bg-white p-10 text-center font-bold text-slate-300">작업 없음</div>'}
                     </div>
                 </div>
             `;
@@ -345,56 +298,38 @@
             const snTag = snParts.length > 1 ? `S/N ${snParts[1].replace(/[:]/g,'').trim()}` : '';
 
             return `
-                <div class="data-row">
-                    <div class="cell-content cell-order bg-slate-900 text-white text-center">
-                        <span class="val-order">${p.id}</span>
-                    </div>
-                    <div class="cell-content cell-qty text-center bg-blue-50/30">
-                        <span class="val-qty">${p.qty}</span>
-                    </div>
-                    <div class="cell-content cell-dim bg-blue-50/50 text-center items-center">
+                <div class="row-content">
+                    <div class="cell w-order bg-slate-900 text-white text-center"><span class="val-order">${p.id}</span></div>
+                    <div class="cell w-qty text-center bg-blue-50/20"><span class="val-qty">${p.qty}</span></div>
+                    <div class="cell w-dim bg-blue-50/50 text-center">
                         <span class="val-dim">${dimMain}</span>
-                        ${snTag ? `<div class="val-sn-tag">${snTag}</div>` : ''}
+                        ${snTag ? `<div class="val-sn-box"><span class="val-sn">${snTag}</span></div>` : ''}
                     </div>
-                    <div class="cell-content cell-mat bg-white">
-                        <div class="flex flex-col gap-1">
-                            <span class="val-mat font-black text-blue-700 uppercase text-xs mb-1">Order Material</span>
-                            <span class="val-mat mb-2">${p.matOrder}</span>
-                            <span class="val-mat font-black text-slate-400 uppercase text-xs mb-1">Internal Grade</span>
-                            <span class="val-mat">${p.matIn}</span>
-                        </div>
+                    <div class="cell w-mat bg-white">
+                        <div class="flex flex-col"><span class="val-mat text-blue-700 font-black text-[10px]">ORDER</span><span class="val-mat mb-1">${p.matOrder}</span>
+                        <span class="val-mat text-slate-400 font-black text-[10px]">GRADE</span><span class="val-mat">${p.matIn}</span></div>
                     </div>
-                    <div class="cell-content cell-weight bg-orange-50 border-x-4 border-orange-200 text-center">
-                        <span class="val-weight">${p.weight}<small class="text-2xl font-black ml-1 text-orange-900 italic">T</small></span>
-                    </div>
-                    <div class="cell-content cell-work bg-emerald-50">
-                        <span class="val-work font-black tracking-tighter">${p.work}</span>
-                    </div>
-                    <div class="cell-content cell-remark bg-amber-50">
-                        <span class="val-remark">${p.remark !== '-' ? '📌 ' + p.remark : '<span class="opacity-20">-</span>'}</span>
-                    </div>
+                    <div class="cell w-weight bg-orange-50 border-x-2 border-orange-200 text-center"><span class="val-weight">${p.weight}<small class="text-xl font-black italic ml-1">T</small></span></div>
+                    <div class="cell w-work bg-emerald-50"><span class="val-work font-black tracking-tighter">${p.work}</span></div>
+                    <div class="cell w-remark bg-amber-50"><span class="val-remark">${p.remark !== '-' ? '📌 ' + p.remark : '-'}</span></div>
                 </div>
             `;
         }
 
-        function toggleLoading(show, text = "로딩 중...") {
-            const overlay = document.getElementById('loading-overlay');
-            const txt = document.getElementById('loading-text');
-            overlay.classList.toggle('hidden', !show);
-            if(txt) txt.innerText = text;
+        function toggleLoading(show, text) {
+            document.getElementById('loading-overlay').classList.toggle('hidden', !show);
+            if(text) document.getElementById('loading-text').innerText = text;
         }
 
-        function showToast(msg) {
-            alert(msg);
-        }
+        function showToast(msg) { alert(msg); }
 
         function changeDate(days) {
             const p = document.getElementById('date-picker');
             const d = new Date(p.value);
             d.setDate(d.getDate() + days);
             p.value = d.toISOString().split('T')[0];
-            analyzeAndPrepareData(); // 로컬 데이터 있을 경우 즉시 반영
-            window.loadCurrentFromCloud(); // 클라우드 데이터 업데이트 시도
+            analyzeAndPrepareData();
+            window.loadCurrentFromCloud();
         }
     </script>
 </body>
