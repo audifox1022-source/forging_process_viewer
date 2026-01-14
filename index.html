@@ -12,55 +12,67 @@
         import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // Firebase 환경 설정 (Canvas 전역 변수 활용)
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'taewoong-tpms-v1';
-
+        // 초기 변수 설정
         let user = null;
         let unsubscribe = null;
+        let auth, db, appId;
 
-        // 필수 규칙 3: 쿼리 전 인증 필수
+        // UI 업데이트 함수
+        function updateStatus(text, type = "info") {
+            const badge = document.getElementById('sync-status');
+            if (!badge) return;
+            badge.innerText = text;
+            if (type === "active") {
+                badge.className = "hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-emerald-900 text-emerald-400 border border-emerald-500/20 uppercase tracking-tight";
+            } else if (type === "error") {
+                badge.className = "hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-red-900 text-red-400 border border-red-500/20 uppercase tracking-tight";
+            } else {
+                badge.className = "hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase tracking-tight";
+            }
+        }
+
+        // 인증 초기화
         const initAuth = async () => {
             try {
+                const firebaseConfig = JSON.parse(__firebase_config);
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'taewoong-tpms-v1';
+
+                // 인증 상태 리스너를 먼저 등록
+                onAuthStateChanged(auth, (currentUser) => {
+                    if (currentUser) {
+                        user = currentUser;
+                        updateStatus("ONLINE SYNC ACTIVE", "active");
+                        setTodayDateInput();
+                        window.loadCurrentFromCloud();
+                    } else {
+                        updateStatus("AUTHENTICATING...", "info");
+                    }
+                });
+
+                // 인증 시도
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
                 }
+
+                // 타임아웃 체크 (5초 후에도 user가 없으면 에러 표시)
+                setTimeout(() => {
+                    if (!user) {
+                        updateStatus("CONNECTION TIMEOUT", "error");
+                        showToast("서버 연결 시간이 초과되었습니다.", "⚠️");
+                    }
+                }, 5000);
+
             } catch (error) {
-                console.error("인증 실패:", error);
-                showToast("네트워크 또는 서버 인증 오류", "❌");
+                console.error("Firebase Init Error:", error);
+                updateStatus("CLOUD CONFIG ERROR", "error");
+                showToast("클라우드 설정 오류", "❌");
             }
         };
-
-        // 인증 상태 변화 감지 및 초기 조회 실행
-        onAuthStateChanged(auth, (currentUser) => {
-            user = currentUser;
-            if (user) {
-                updateCloudStatusBadge(true);
-                setTodayDateInput();
-                // 인증 완료 후 즉시 클라우드 데이터 확인
-                window.loadCurrentFromCloud();
-            } else {
-                updateCloudStatusBadge(false);
-            }
-        });
-
-        function updateCloudStatusBadge(isActive) {
-            const badge = document.getElementById('sync-status');
-            if (badge) {
-                if (isActive) {
-                    badge.innerText = "ONLINE SYNC ACTIVE";
-                    badge.className = "hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-emerald-900 text-emerald-400 border border-emerald-500/20 uppercase tracking-tight";
-                } else {
-                    badge.innerText = "OFFLINE MODE";
-                    badge.className = "hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-700 text-slate-400 border border-slate-600 uppercase tracking-tight";
-                }
-            }
-        }
 
         function setTodayDateInput() {
             const now = new Date();
@@ -69,16 +81,15 @@
             if (datePicker && !datePicker.value) datePicker.value = todayStr;
         }
 
-        // 전역 배포 함수
         window.saveToCloud = async () => {
             if (!user) {
-                showToast("인증 진행 중입니다. 잠시 후 시도하세요.", "⏳");
+                showToast("인증이 완료되지 않았습니다.", "⏳");
                 return;
             }
             
             const processList = window.currentProcessList || [];
             if(processList.length === 0) {
-                showToast("배포할 공정 데이터가 없습니다. 파일을 먼저 업로드하세요.", "📁");
+                showToast("배포할 데이터가 없습니다.", "📁");
                 return;
             }
 
@@ -86,9 +97,8 @@
             const dateStr = document.getElementById('date-picker').value;
             if(!dateStr || !sheetName) return;
 
-            toggleLoading(true, "클라우드 서버로 데이터를 동기화 중...");
+            toggleLoading(true, "서버에 동기화 중...");
             try {
-                // 필수 규칙 1: 정해진 경로 사용 (/artifacts/{appId}/public/data/{collectionName}/{docId})
                 const docId = `${sheetName}_${dateStr}`;
                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId);
                 
@@ -98,19 +108,17 @@
                     procs: JSON.stringify(processList),
                     dayLead: window.currentDayLead || '미정',
                     nightLead: window.currentNightLead || '미정',
-                    updatedAt: new Date().toISOString(),
-                    publisherId: user.uid
+                    updatedAt: new Date().toISOString()
                 });
-                showToast("✅ 공정 데이터 배포 완료! 현장에 실시간 공유되었습니다.");
+                showToast("✅ 클라우드 배포 완료!");
             } catch (e) {
-                console.error("Firestore 저장 오류:", e);
-                showToast("❌ 저장 실패: 관리자 권한을 확인하세요.");
+                console.error("Save Error:", e);
+                showToast("저장 권한이 없습니다.", "❌");
             } finally {
                 toggleLoading(false);
             }
         };
 
-        // 전역 조회 함수
         window.loadCurrentFromCloud = () => {
             if (!user) return;
             const sheetName = document.getElementById('sheet-selector').value;
@@ -122,20 +130,19 @@
             const docId = `${sheetName}_${dateStr}`;
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId);
             
-            // 필수 규칙 1 & 2 적용: 단순 콜렉션/문서 쿼리
             unsubscribe = onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     window.renderFromCloud(JSON.parse(data.procs), data.dayLead, data.nightLead);
-                    showToast("☁️ 최신 클라우드 데이터를 불러왔습니다.");
+                    showToast("☁️ 최신 데이터를 수신했습니다.");
                 } else if (window.workbookObj) {
-                    window.analyzeAndPrepareData(); // 로컬 파일 데이터 분석으로 폴백
+                    window.analyzeAndPrepareData(); 
                 } else {
-                    document.getElementById('process-list').innerHTML = `<div class="text-center py-20 text-slate-400 font-bold text-xl bg-white rounded-3xl border-2 border-dashed tracking-tighter italic">클라우드에 등록된 작업이 없습니다.</div>`;
+                    document.getElementById('process-list').innerHTML = `<div class="text-center py-20 text-slate-400 font-bold text-xl bg-white rounded-3xl border-2 border-dashed">클라우드에 등록된 작업이 없습니다.</div>`;
                 }
             }, (err) => {
-                console.error("실시간 수신 에러:", err);
-                showToast("데이터 연동 실패", "❌");
+                console.error("Listen Error:", err);
+                updateStatus("SYNC ERROR", "error");
             });
         };
 
@@ -144,15 +151,11 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800;900&display=swap');
         body { font-family: 'Pretendard', sans-serif; background-color: #f1f5f9; color: #0f172a; letter-spacing: -0.05em; overflow-x: hidden; margin: 0; }
-        
         .container-full { width: 100%; padding: 0 0.2rem; }
-        
-        /* 고밀도 균형 레이아웃 */
         .scroll-container { overflow-x: auto; width: 100%; border-radius: 6px; border: 1px solid #cbd5e1; }
         .row-content { display: inline-flex; min-width: 1650px; background: white; border-bottom: 1px solid #e2e8f0; align-items: stretch; }
         .header-row { display: inline-flex; min-width: 1650px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
 
-        /* 컬럼 너비 최적화 */
         .w-order { width: 150px; flex-shrink: 0; }
         .w-qty { width: 55px; flex-shrink: 0; } 
         .w-dim { width: 450px; flex-shrink: 0; }
@@ -164,7 +167,6 @@
         .cell { @apply flex flex-col justify-center px-2 py-1.5 border-r border-slate-100; }
         .header-cell { @apply flex items-center justify-center px-2 py-2 font-black text-[11px] border-r border-slate-700 uppercase tracking-tighter; }
 
-        /* 폰트 밸런스 개선 */
         .val-order { font-size: 1.1rem; font-weight: 800; }
         .val-qty { font-size: 1.55rem; font-weight: 950; color: #2563eb; line-height: 1; text-align: center; }
         .val-dim { font-size: 1.3rem; font-weight: 800; line-height: 1.1; }
@@ -176,14 +178,8 @@
 
         .shift-banner { @apply w-full py-2 px-4 mb-1 rounded-lg flex justify-between items-center shadow-sm border-b-[8px]; }
         .ctrl-panel { @apply bg-white p-2 rounded-xl shadow-md border border-slate-200 mb-2; }
-        
-        #custom-toast { 
-            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); 
-            z-index: 1000; display: none; 
-            animation: slideUp 0.3s ease-out;
-        }
+        #custom-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1000; display: none; animation: slideUp 0.3s ease-out; }
         @keyframes slideUp { from { bottom: 0; opacity: 0; } to { bottom: 30px; opacity: 1; } }
-
         ::-webkit-scrollbar { height: 10px; }
         ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; border: 2px solid #f1f5f9; }
     </style>
@@ -200,7 +196,6 @@
     </header>
 
     <main class="container-full mt-2">
-        <!-- 초기 대기 화면 -->
         <div id="welcome-state" class="bg-white rounded-2xl p-8 text-center border border-blue-100 shadow-xl mt-4 max-w-xl mx-auto">
             <div class="text-5xl mb-3">📡</div>
             <h2 class="text-2xl font-black text-slate-800 mb-1 italic uppercase tracking-tighter">Field Connection</h2>
@@ -211,7 +206,6 @@
         </div>
 
         <div id="main-ui" class="hidden space-y-2">
-            <!-- 조회 및 배포 컨트롤 -->
             <div class="ctrl-panel">
                 <div class="flex flex-wrap gap-2 items-end">
                     <div class="flex-1 min-w-[110px]">
@@ -232,13 +226,10 @@
                     </div>
                 </div>
             </div>
-
-            <!-- 공정 리스트 -->
             <div id="process-list" class="space-y-4 pb-20"></div>
         </div>
     </main>
 
-    <!-- 로딩 마스크 -->
     <div id="loading-overlay" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center z-[100]">
         <div class="bg-white px-8 py-6 rounded-2xl shadow-2xl flex flex-col items-center">
             <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
@@ -246,7 +237,6 @@
         </div>
     </div>
 
-    <!-- 알림 시스템 -->
     <div id="custom-toast">
         <div class="bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-slate-700">
             <span id="toast-icon">✅</span>
@@ -261,6 +251,12 @@
         window.currentNightLead = '미정';
         let dateColumns = {};
 
+        // 데이터 정제 함수 (r 제거 포함)
+        function sanitizeValue(val) {
+            if (val === undefined || val === null) return '';
+            return val.toString().replace(/r/g, '').trim();
+        }
+
         async function handleExcelUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -271,33 +267,26 @@
                 try {
                     const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                     window.workbookObj = workbook;
-
                     const now = new Date();
                     const currentMonthPart = `${String(now.getFullYear()).slice(-2)}년 ${now.getMonth() + 1}월`; 
-                    
                     const selector = document.getElementById('sheet-selector');
                     selector.innerHTML = '';
-                    
                     const validSheets = workbook.SheetNames.filter(name => name.includes('계획서') || name.includes('월'));
                     let bestSheetName = validSheets[0];
-
                     validSheets.forEach(name => {
                         const opt = document.createElement('option');
                         opt.value = name; opt.innerText = name;
                         if (name.includes(currentMonthPart)) bestSheetName = name;
                         selector.appendChild(opt);
                     });
-
                     if (bestSheetName) selector.value = bestSheetName;
-
                     document.getElementById('admin-actions').classList.remove('hidden');
                     document.getElementById('welcome-state').classList.add('hidden');
                     document.getElementById('main-ui').classList.remove('hidden');
-                    
                     processExcelData();
                 } catch (err) {
                     console.error(err);
-                    window.showToast("엑셀 파일 분석 오류", "❌");
+                    window.showToast("파일 분석 오류", "❌");
                 } finally {
                     toggleLoading(false);
                 }
@@ -310,7 +299,6 @@
             if (!sheetName || !window.workbookObj) return;
             const worksheet = window.workbookObj.Sheets[sheetName];
             currentSheetFullData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-            
             dateColumns = {};
             currentSheetFullData[0].forEach((cell, idx) => {
                 if (typeof cell === 'number' && cell > 40000) {
@@ -321,16 +309,13 @@
                     dateColumns[`${y}-${m}-${day}`] = idx;
                 }
             });
-
             const now = new Date();
             const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-            
             const availableDates = Object.keys(dateColumns).sort();
             if (availableDates.length > 0) {
                 const targetDate = availableDates.includes(todayStr) ? todayStr : availableDates[0];
                 document.getElementById('date-picker').value = targetDate;
                 window.analyzeAndPrepareData();
-                window.showToast("📁 파일을 성공적으로 로드했습니다.");
             }
         }
 
@@ -338,25 +323,26 @@
             const dateStr = document.getElementById('date-picker').value;
             const colIdx = dateColumns[dateStr];
             if (colIdx === undefined || !currentSheetFullData) return;
-
             window.currentProcessList = [];
             for(let i=3; i<=63; i++) {
                 if(i === 33) continue;
                 const row = currentSheetFullData[i];
                 if(row && row[colIdx] && row[colIdx].toString().trim().length >= 4) {
                     window.currentProcessList.push({
-                        rowIdx: i, id: row[colIdx],
-                        dim: (row[colIdx+1]||'').toString(), matOrder: (row[colIdx+2]||'').toString(),
-                        matIn: (row[colIdx+3]||'').toString(), qty: (row[colIdx+4]||'1').toString(),
-                        work: (row[colIdx+5]||'').toString(), remark: (row[colIdx+6]||'').toString(),
-                        weight: (row[colIdx+7]||'').toString()
+                        rowIdx: i, 
+                        id: row[colIdx],
+                        dim: (row[colIdx+1]||'').toString(), 
+                        matOrder: (row[colIdx+2]||'').toString(),
+                        matIn: (row[colIdx+3]||'').toString(), 
+                        qty: sanitizeValue(row[colIdx+4] || '1'), // 'r' 제거 필터 적용
+                        work: (row[colIdx+5]||'').toString(), 
+                        remark: (row[colIdx+6]||'').toString(),
+                        weight: sanitizeValue(row[colIdx+7] || '') // 'r' 제거 필터 적용
                     });
                 }
             }
-            
             window.currentDayLead = currentSheetFullData[33] ? (currentSheetFullData[33][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
             window.currentNightLead = currentSheetFullData[64] ? (currentSheetFullData[64][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
-            
             window.renderFromCloud(window.currentProcessList, window.currentDayLead, window.currentNightLead);
         }
 
@@ -365,10 +351,8 @@
             container.innerHTML = '';
             document.getElementById('welcome-state').classList.add('hidden');
             document.getElementById('main-ui').classList.remove('hidden');
-
             const dayItems = procs.filter(p => p.rowIdx <= 32);
             const nightItems = procs.filter(p => p.rowIdx >= 34);
-
             renderShiftSection(`☀️ 주간공정 [${dayLead}]`, dayItems, "blue", container);
             renderShiftSection(`🌙 야간공정 [${nightLead}]`, nightItems, "slate", container);
         };
@@ -377,7 +361,6 @@
             const section = document.createElement('div');
             const borderColor = theme === 'blue' ? 'border-blue-600' : 'border-slate-800';
             const bgColor = theme === 'blue' ? 'bg-blue-700' : 'bg-slate-800';
-            
             section.innerHTML = `
                 <div class="shift-banner ${bgColor} ${borderColor} text-white">
                     <h2 class="text-base sm:text-lg font-black italic tracking-tighter">${title}</h2>
@@ -405,7 +388,6 @@
             const snParts = p.dim.split(/S\/N|s\/n/i);
             const dimMain = snParts[0].trim();
             const snTag = snParts.length > 1 ? `S/N ${snParts[1].replace(/[:]/g,'').trim()}` : '';
-
             return `
                 <div class="row-content">
                     <div class="cell w-order bg-slate-900 text-white text-center"><span class="val-order tracking-tighter">${p.id}</span></div>
@@ -440,14 +422,10 @@
             const msgEl = document.getElementById('toast-message');
             const iconEl = document.getElementById('toast-icon');
             if(!toast || !msgEl) return;
-
             msgEl.innerText = msg;
             iconEl.innerText = icon;
             toast.style.display = 'block';
-            
-            setTimeout(() => {
-                toast.style.display = 'none';
-            }, 3000);
+            setTimeout(() => { toast.style.display = 'none'; }, 3000);
         }
 
         function changeDate(days) {
