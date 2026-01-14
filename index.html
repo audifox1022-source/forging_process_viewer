@@ -70,7 +70,6 @@
                     }
                 });
 
-                // 인증 토큰 에러 방지 로직
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token && __initial_auth_token !== "") {
                     try {
                         await signInWithCustomToken(auth, __initial_auth_token);
@@ -93,7 +92,6 @@
             if (datePicker && !datePicker.value) datePicker.value = todayStr;
         }
 
-        // 전체 데이터 배포 로직
         window.saveToCloud = async () => {
             if (!user || !db) {
                 showToast("인증 진행 중입니다.", "⏳");
@@ -188,7 +186,7 @@
         .row-content { display: inline-flex; min-width: 1250px; background: white; border-bottom: 1px solid #e2e8f0; align-items: stretch; }
         .header-row { display: inline-flex; min-width: 1250px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
 
-        /* 컬럼 너비 압축 (수주치수, 재질 최적화) */
+        /* 컬럼 너비 압축 최적화 */
         .w-order { width: 95px; flex-shrink: 0; }
         .w-qty { width: 40px; flex-shrink: 0; } 
         .w-dim { width: 300px; flex-shrink: 0; }
@@ -197,7 +195,7 @@
         .w-work { width: 380px; flex-shrink: 0; }
         .w-remark { width: 220px; flex-shrink: 0; flex: 1; }
 
-        .cell { @apply flex flex-col justify-center px-1 py-0.5 border-r border-slate-100; }
+        .cell { @apply flex flex-col justify-center px-1 py-0.5 border-r border-slate-100; overflow: hidden; }
         .header-cell { @apply flex items-center justify-center px-1 py-1 font-black text-[9px] border-r border-slate-700 uppercase tracking-tighter; }
 
         .val-order { font-size: 0.85rem; font-weight: 800; }
@@ -205,7 +203,10 @@
         .val-dim { font-size: 1rem; font-weight: 800; line-height: 1; }
         .val-sn-box { @apply mt-0 px-1.5 py-0 bg-white border border-blue-500 rounded-full font-black text-[8px] text-blue-700 shadow-sm inline-block; }
         .val-mat { font-size: 0.75rem; font-weight: 700; line-height: 1.05; }
-        .val-weight { font-size: 1.4rem; font-weight: 950; color: #ea580c; text-align: center; line-height: 1; } 
+        
+        /* 중량열 폰트 크기를 HEAD(9px)와 동일하게 조정 및 겹침 방지 */
+        .val-weight { font-size: 9px; font-weight: 900; color: #ea580c; text-align: center; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } 
+        
         .val-work { font-size: 0.95rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1; }
         .val-remark { font-size: 0.8rem; font-weight: 700; color: #92400e; white-space: normal; }
 
