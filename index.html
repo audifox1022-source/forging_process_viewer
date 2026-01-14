@@ -201,7 +201,7 @@
         .w-order { width: 95px; flex-shrink: 0; }
         .w-qty { width: 40px; flex-shrink: 0; } 
         .w-dim { width: 300px; flex-shrink: 0; }
-        .w-mat { width: 145px; flex-shrink: 0; } /* 너비 소폭 확장하여 12px 수용 */
+        .w-mat { width: 145px; flex-shrink: 0; } 
         .w-weight { width: 85px; flex-shrink: 0; }
         .w-work { width: 380px; flex-shrink: 0; }
         .w-remark { width: 220px; flex-shrink: 0; flex: 1; }
@@ -214,12 +214,8 @@
         .val-dim { font-size: 1rem; font-weight: 800; line-height: 1; }
         .val-sn-box { @apply mt-0 px-1.5 py-0 bg-white border border-blue-500 rounded-full font-black text-[8px] text-blue-700 shadow-sm inline-block; }
         
-        /* 재질 데이터 12px 상향 조정 */
         .val-mat { font-size: 12px; font-weight: 800; line-height: 1.1; }
-        
-        /* 투입중량 16px 강화 */
         .val-weight { font-size: 16px; font-weight: 950; color: #ea580c; text-align: center; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: clip; display: flex; align-items: center; justify-content: center; width: 100%; } 
-        
         .val-work { font-size: 0.95rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1; }
         .val-remark { font-size: 0.8rem; font-weight: 700; color: #92400e; white-space: normal; }
 
@@ -230,11 +226,31 @@
         ::-webkit-scrollbar { height: 6px; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 
+        /* 가로 모드 유도 레이어 */
+        #landscape-warning {
+            position: fixed; inset: 0; background: #0f172a; z-index: 1000;
+            display: none; flex-direction: column; items-center: center; justify-content: center;
+            color: white; text-align: center; padding: 20px;
+        }
+        @media screen and (max-width: 1024px) and (orientation: portrait) {
+            #landscape-warning { display: flex; }
+        }
+
         #help-modal-container { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-blur: 5px; z-index: 300; display: none; align-items: center; justify-content: center; padding: 16px; }
         .help-card { background: white; border-radius: 1.5rem; width: 100%; max-width: 400px; max-height: 85vh; overflow-y: auto; position: relative; padding-bottom: 2rem; }
     </style>
 </head>
 <body class="pb-4">
+
+    <!-- 가로 모드 안내 레이어 -->
+    <div id="landscape-warning">
+        <div class="mb-6 animate-bounce">
+            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500 mx-auto"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="m12 15 2-2 2 2"/><path d="m12 9-2 2-2-2"/></svg>
+        </div>
+        <h2 class="text-xl font-black mb-2 italic uppercase">Rotate Device</h2>
+        <p class="text-slate-400 text-sm font-bold leading-relaxed">현장 가독성을 극대화하기 위해<br><span class="text-blue-400">기기를 가로(Landscape)로 회전</span>해주세요.</p>
+        <div class="mt-8 px-4 py-2 border border-slate-700 rounded-lg text-[10px] text-slate-500 font-mono uppercase tracking-widest">Taewoong TPMS System</div>
+    </div>
 
     <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-sm border-b border-blue-600 px-2 py-1 flex justify-between items-center">
         <h1 class="text-sm font-black italic tracking-tighter uppercase">Taewoong <span class="text-blue-500">TPMS (15,000T)</span></h1>
@@ -353,7 +369,10 @@
         const excelDateToISO = (serial) => {
             const date = new Date(1899, 11, 30);
             date.setDate(date.getDate() + serial);
-            return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
         };
 
         window.extractDataByDate = (dateStr) => {
