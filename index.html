@@ -12,39 +12,36 @@
         import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // Firebase 설정 검증 및 초기화
+        // 클라우드 설정 변수
         let app, auth, db, appId;
         let user = null;
         let unsubscribe = null;
+        window.isCloudAvailable = false;
 
+        // Firebase 초기화 로직
         const initFirebase = () => {
             try {
-                const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '';
-                if (!configStr) {
-                    throw new Error("Firebase 설정 데이터가 없습니다.");
+                // 환경 변수 주입 확인
+                const configStr = (typeof __firebase_config !== 'undefined' && __firebase_config) ? __firebase_config : null;
+                
+                if (configStr) {
+                    const firebaseConfig = JSON.parse(configStr);
+                    app = initializeApp(firebaseConfig);
+                    auth = getAuth(app);
+                    db = getFirestore(app);
+                    appId = typeof __app_id !== 'undefined' ? __app_id : 'taewoong-tpms-v1';
+                    window.isCloudAvailable = true;
+                    return true;
                 }
-                
-                const firebaseConfig = JSON.parse(configStr);
-                app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-                appId = typeof __app_id !== 'undefined' ? __app_id : 'taewoong-tpms-v1';
-                
-                return true;
+                return false;
             } catch (error) {
-                console.error("Firebase 초기화 실패:", error);
-                showToast("클라우드 연결 설정이 되어있지 않습니다.", "⚠️");
-                const badge = document.getElementById('sync-status');
-                if (badge) {
-                    badge.innerText = "OFFLINE MODE";
-                    badge.className = "hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-red-900 text-red-400 border border-red-500/20 uppercase tracking-tight";
-                }
+                console.warn("Firebase Config Error:", error);
                 return false;
             }
         };
 
         const initAuth = async () => {
-            if (!auth) return;
+            if (!window.isCloudAvailable) return;
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
@@ -53,11 +50,10 @@
                 }
             } catch (error) {
                 console.error("인증 실패:", error);
-                showToast("로그인 실패: 클라우드 기능을 사용할 수 없습니다.", "❌");
             }
         };
 
-        // 초기화 실행
+        // 앱 시작 시 실행
         if (initFirebase()) {
             onAuthStateChanged(auth, (currentUser) => {
                 user = currentUser;
@@ -72,35 +68,42 @@
                 }
             });
             initAuth();
+        } else {
+            // 클라우드 설정이 없을 경우 오프라인 모드 표시
+            window.onload = () => {
+                const syncBadge = document.getElementById('sync-status');
+                if (syncBadge) {
+                    syncBadge.innerText = "OFFLINE MODE";
+                    syncBadge.className = "hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-700 text-slate-400 border border-slate-600 uppercase tracking-tight";
+                }
+                setTodayDateInput();
+            };
         }
 
         function setTodayDateInput() {
             const now = new Date();
             const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
             const datePicker = document.getElementById('date-picker');
-            if (datePicker && !datePicker.value) datePicker.value = todayStr;
+            if (datePicker) datePicker.value = todayStr;
         }
 
         window.saveToCloud = async () => {
-            if (!db || !user) {
-                showToast("클라우드가 연결되지 않았습니다.", "⚠️");
+            if (!window.isCloudAvailable || !user) {
+                window.showToast("클라우드 설정이 없어 저장할 수 없습니다.", "⚠️");
                 return;
             }
             
             const processList = window.currentProcessList || [];
             if(processList.length === 0) {
-                showToast("먼저 파일을 업로드하여 데이터를 준비하세요.", "📁");
+                window.showToast("먼저 파일을 업로드하여 데이터를 준비하세요.", "📁");
                 return;
             }
 
             const sheetName = document.getElementById('sheet-selector').value;
             const dateStr = document.getElementById('date-picker').value;
-            if(!dateStr) {
-                showToast("날짜를 선택해주세요.", "📅");
-                return;
-            }
+            if(!dateStr) return;
 
-            toggleLoading(true, "서버에 공정 데이터를 동기화 중...");
+            toggleLoading(true, "서버에 동기화 중...");
             try {
                 const docId = `${sheetName}_${dateStr}`;
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId), {
@@ -111,36 +114,37 @@
                     nightLead: window.currentNightLead || '미정',
                     updatedAt: new Date().toISOString()
                 });
-                showToast("✅ 클라우드 배포 완료! 현장에서 즉시 확인 가능합니다.");
+                window.showToast("✅ 클라우드 배포 완료! 현장에서 즉시 확인 가능합니다.");
             } catch (e) {
-                console.error("저장 오류:", e);
-                showToast("❌ 저장 권한이 없습니다. (Firestore 규칙 확인 필요)");
+                console.error(e);
+                window.showToast("❌ 저장 권한이 없습니다.", "⚠️");
             } finally {
                 toggleLoading(false);
             }
         };
 
         window.loadCurrentFromCloud = () => {
-            if (!db || !user) return;
             const sheetName = document.getElementById('sheet-selector').value;
             const dateStr = document.getElementById('date-picker').value;
-            if(!dateStr || !sheetName) return;
-
-            if (unsubscribe) unsubscribe();
-
-            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', `${sheetName}_${dateStr}`);
-            unsubscribe = onSnapshot(docRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    window.renderFromCloud(JSON.parse(data.procs), data.dayLead, data.nightLead);
-                } else if (window.workbookObj) {
-                    window.analyzeAndPrepareData();
-                } else {
-                    document.getElementById('process-list').innerHTML = `<div class="text-center py-20 text-slate-400 font-bold text-xl bg-white rounded-3xl border-2 border-dashed tracking-tighter italic">해당 날짜에 등록된 정보가 없습니다.</div>`;
-                }
-            }, (err) => {
-                console.error("동기화 오류:", err);
-            });
+            
+            // 클라우드가 설정되어 있다면 리얼타임 데이터 로드
+            if (window.isCloudAvailable && user && sheetName && dateStr) {
+                if (unsubscribe) unsubscribe();
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', `${sheetName}_${dateStr}`);
+                unsubscribe = onSnapshot(docRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        window.renderFromCloud(JSON.parse(data.procs), data.dayLead, data.nightLead);
+                    } else if (window.workbookObj) {
+                        window.analyzeAndPrepareData();
+                    }
+                }, (err) => console.warn("Cloud Sync Error:", err));
+            } else if (window.workbookObj) {
+                // 클라우드가 없으면 로컬 데이터 분석만 수행
+                window.analyzeAndPrepareData();
+            } else {
+                document.getElementById('process-list').innerHTML = `<div class="text-center py-20 text-slate-400 font-bold text-xl bg-white rounded-3xl border-2 border-dashed tracking-tighter">데이터를 조회하려면 파일을 업로드하거나 [조회]를 누르세요.</div>`;
+            }
         };
     </script>
     <style>
@@ -154,23 +158,25 @@
         .row-content { display: inline-flex; min-width: 1650px; background: white; border-bottom: 1px solid #e2e8f0; align-items: stretch; }
         .header-row { display: inline-flex; min-width: 1650px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
 
-        .w-order { width: 150px; flex-shrink: 0; }
-        .w-qty { width: 55px; flex-shrink: 0; } 
+        /* 컬럼 너비 조정 */
+        .w-order { width: 140px; flex-shrink: 0; }
+        .w-qty { width: 50px; flex-shrink: 0; } 
         .w-dim { width: 450px; flex-shrink: 0; }
-        .w-mat { width: 170px; flex-shrink: 0; } 
+        .w-mat { width: 180px; flex-shrink: 0; } 
         .w-weight { width: 150px; flex-shrink: 0; }
         .w-work { width: 450px; flex-shrink: 0; }
-        .w-remark { width: 250px; flex-shrink: 0; flex: 1; }
+        .w-remark { width: 230px; flex-shrink: 0; flex: 1; }
 
         .cell { @apply flex flex-col justify-center px-2 py-1.5 border-r border-slate-100; }
         .header-cell { @apply flex items-center justify-center px-2 py-2 font-black text-[11px] border-r border-slate-700 uppercase tracking-tighter; }
 
-        .val-order { font-size: 1.1rem; font-weight: 800; }
-        .val-qty { font-size: 1.55rem; font-weight: 950; color: #2563eb; line-height: 1; text-align: center; }
-        .val-dim { font-size: 1.3rem; font-weight: 800; line-height: 1.1; }
+        /* 폰트 밸런스 (오류 방지 및 가독성) */
+        .val-order { font-size: 1.05rem; font-weight: 800; }
+        .val-qty { font-size: 1.5rem; font-weight: 950; color: #2563eb; text-align: center; }
+        .val-dim { font-size: 1.25rem; font-weight: 800; line-height: 1.1; }
         .val-sn-box { @apply mt-1 px-3 py-0.5 bg-white border border-blue-500 rounded-full font-black text-[10px] text-blue-700 shadow-sm inline-block; }
         .val-mat { font-size: 0.9rem; font-weight: 700; line-height: 1.2; }
-        .val-weight { font-size: 1.6rem; font-weight: 950; color: #ea580c; line-height: 1; white-space: nowrap; text-align: center; } 
+        .val-weight { font-size: 1.6rem; font-weight: 950; color: #ea580c; text-align: center; } 
         .val-work { font-size: 1.15rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1.1; }
         .val-remark { font-size: 0.85rem; font-weight: 700; color: #92400e; white-space: normal; }
 
@@ -193,7 +199,7 @@
     <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-md border-b-2 border-blue-600 px-4 py-1.5 flex justify-between items-center">
         <h1 class="text-lg font-black italic tracking-tighter">TAEWOONG <span class="text-blue-500">TPMS</span></h1>
         <div class="flex items-center gap-3">
-            <span id="sync-status" class="hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase tracking-tight">Cloud Loading...</span>
+            <span id="sync-status" class="hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase tracking-tight">System Ready</span>
             <label for="excel-upload" class="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded text-[9px] font-black cursor-pointer shadow-md transition-all uppercase tracking-tight">파일 업로드</label>
             <input id="excel-upload" type="file" class="hidden" accept=".xls,.xlsx" onchange="handleExcelUpload(event)">
         </div>
@@ -201,29 +207,29 @@
 
     <main class="container-full mt-2">
         <div id="welcome-state" class="bg-white rounded-2xl p-8 text-center border border-blue-100 shadow-xl mt-4 max-w-xl mx-auto">
-            <div class="text-5xl mb-3">⚙️</div>
-            <h2 class="text-2xl font-black text-slate-800 mb-1 italic uppercase">Forging Workflow</h2>
-            <p class="text-slate-400 text-sm font-bold tracking-tighter">관리자 파일을 업로드하거나 공유 데이터를 실시간 조회하세요.</p>
+            <div class="text-5xl mb-3">🛠️</div>
+            <h2 class="text-2xl font-black text-slate-800 mb-1 italic uppercase tracking-tighter">Forge Order Master</h2>
+            <p class="text-slate-400 text-sm font-bold tracking-tighter">계획서 파일을 업로드하여 오늘 공정을 확인하세요.</p>
         </div>
 
         <div id="main-ui" class="hidden space-y-2">
             <div class="ctrl-panel">
                 <div class="flex flex-wrap gap-2 items-end">
                     <div class="flex-1 min-w-[110px]">
-                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase">Date</label>
-                        <input type="date" id="date-picker" class="w-full p-1 bg-slate-50 border border-slate-200 rounded font-black text-base focus:border-blue-500 outline-none">
+                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase tracking-widest">Select Date</label>
+                        <input type="date" id="date-picker" class="w-full p-1 bg-slate-50 border border-slate-200 rounded font-black text-base focus:border-blue-500 outline-none shadow-inner">
                     </div>
                     <div class="flex-1 min-w-[110px]">
-                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase">Sheet</label>
-                        <select id="sheet-selector" class="w-full p-1 bg-slate-50 border border-slate-200 rounded font-black text-base focus:border-blue-500 outline-none"></select>
+                        <label class="text-[8px] font-black text-blue-700 ml-1 uppercase tracking-widest">Select Sheet</label>
+                        <select id="sheet-selector" class="w-full p-1 bg-slate-50 border border-slate-200 rounded font-black text-base focus:border-blue-500 outline-none shadow-inner"></select>
                     </div>
                     <div class="flex gap-1">
-                        <button onclick="changeDate(-1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition">이전</button>
-                        <button onclick="window.loadCurrentFromCloud()" class="bg-blue-600 text-white font-black px-6 py-1.5 rounded text-sm shadow hover:bg-blue-700 active:scale-95 transition-all">조회</button>
-                        <button onclick="changeDate(1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition">다음</button>
+                        <button onclick="changeDate(-1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition shadow-sm">이전</button>
+                        <button onclick="window.loadCurrentFromCloud()" class="bg-blue-600 text-white font-black px-8 py-1.5 rounded text-sm shadow-lg hover:bg-blue-700 active:scale-95 transition-all">조회</button>
+                        <button onclick="changeDate(1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition shadow-sm">다음</button>
                     </div>
                     <div id="admin-actions" class="hidden">
-                        <button onclick="saveToCloud()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-1.5 rounded text-[10px] shadow-sm transition-all flex items-center gap-1">☁️ 배포하기</button>
+                        <button onclick="window.saveToCloud()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-1.5 rounded text-[10px] shadow-sm transition-all flex items-center gap-1">☁️ 배포하기</button>
                     </div>
                 </div>
             </div>
@@ -232,17 +238,19 @@
         </div>
     </main>
 
+    <!-- 로딩 애니메이션 -->
     <div id="loading-overlay" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center z-[100]">
         <div class="bg-white px-8 py-6 rounded-2xl shadow-2xl flex flex-col items-center">
             <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
-            <p id="loading-text" class="font-black text-slate-800 text-base italic tracking-tight uppercase">Processing...</p>
+            <p id="loading-text" class="font-black text-slate-800 text-base italic tracking-tight uppercase">Analysing...</p>
         </div>
     </div>
 
+    <!-- 알림창(토스트) -->
     <div id="custom-toast">
         <div class="bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-slate-700">
             <span id="toast-icon">✅</span>
-            <span id="toast-message" class="font-black text-sm tracking-tight">저장 완료</span>
+            <span id="toast-message" class="font-black text-xs tracking-tight">저장 완료</span>
         </div>
     </div>
 
@@ -256,7 +264,7 @@
         async function handleExcelUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
-            toggleLoading(true, "파일 분석 중...");
+            toggleLoading(true, "파일 데이터를 읽는 중...");
 
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -288,8 +296,8 @@
                     
                     processExcelData();
                 } catch (err) {
-                    console.error("파일 처리 실패:", err);
-                    showToast("파일 처리 중 오류가 발생했습니다.", "❌");
+                    console.error(err);
+                    window.showToast("파일 처리 오류", "❌");
                 } finally {
                     toggleLoading(false);
                 }
@@ -322,7 +330,7 @@
                 const targetDate = availableDates.includes(todayStr) ? todayStr : availableDates[0];
                 document.getElementById('date-picker').value = targetDate;
                 window.analyzeAndPrepareData();
-                showToast("📁 파일을 성공적으로 분석했습니다.");
+                window.showToast("📁 파일을 성공적으로 로드했습니다.");
             }
         }
 
@@ -367,7 +375,7 @@
 
         function renderShiftSection(title, items, theme, container) {
             const section = document.createElement('div');
-            const borderColor = theme === 'blue' ? 'border-blue-600' : 'border-slate-700';
+            const borderColor = theme === 'blue' ? 'border-blue-600' : 'border-slate-800';
             const bgColor = theme === 'blue' ? 'bg-blue-700' : 'bg-slate-800';
             
             section.innerHTML = `
@@ -375,18 +383,18 @@
                     <h2 class="text-base sm:text-lg font-black italic tracking-tighter">${title}</h2>
                     <span class="text-[10px] font-bold opacity-70">${items.length} PCS</span>
                 </div>
-                <div class="scroll-container shadow-sm">
+                <div class="scroll-container shadow-sm bg-white">
                     <div class="header-row">
                         <div class="header-cell w-order bg-slate-950">수주번호</div>
-                        <div class="header-cell w-qty bg-blue-800">수량</div>
-                        <div class="header-cell w-dim bg-blue-900 italic">수주치수 / S/N</div>
-                        <div class="header-cell w-mat bg-slate-900">재질</div>
-                        <div class="header-cell w-weight bg-orange-700">투입중량</div>
+                        <div class="header-cell w-qty bg-blue-800 text-center">수량</div>
+                        <div class="header-cell w-dim bg-blue-900 italic">수주치수 / SN</div>
+                        <div class="header-cell w-mat bg-slate-950">재질</div>
+                        <div class="header-cell w-weight bg-orange-700 text-center">투입중량</div>
                         <div class="header-cell w-work bg-emerald-900">작업 상세</div>
                         <div class="header-cell w-remark bg-amber-800">비고</div>
                     </div>
                     <div class="flex flex-col">
-                        ${items.length > 0 ? items.map(p => createRowHTML(p)).join('') : '<div class="bg-white p-4 text-center font-bold text-slate-300 text-[11px] tracking-tighter">계획 없음</div>'}
+                        ${items.length > 0 ? items.map(p => createRowHTML(p)).join('') : '<div class="bg-white p-4 text-center font-bold text-slate-300 text-[11px] tracking-tighter uppercase italic">No Schedule Found</div>'}
                     </div>
                 </div>
             `;
@@ -403,7 +411,7 @@
                     <div class="cell w-order bg-slate-900 text-white text-center"><span class="val-order tracking-tighter">${p.id}</span></div>
                     <div class="cell w-qty text-center bg-blue-50/20"><span class="val-qty tracking-tighter">${p.qty}</span></div>
                     <div class="cell w-dim bg-blue-50/50 text-center items-center">
-                        <span class="val-dim">${dimMain}</span>
+                        <span class="val-dim leading-none">${dimMain}</span>
                         ${snTag ? `<div class="val-sn-box"><span class="val-sn">${snTag}</span></div>` : ''}
                     </div>
                     <div class="cell w-mat bg-white">
@@ -439,7 +447,7 @@
             
             setTimeout(() => {
                 toast.style.display = 'none';
-            }, 3500);
+            }, 3000);
         }
 
         function changeDate(days) {
