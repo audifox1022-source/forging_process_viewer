@@ -98,16 +98,16 @@
         
         .container-full { width: 100%; padding: 0 0.25rem; }
         
-        /* 고밀도 레이아웃 */
+        /* 초고밀도 레이아웃 */
         .scroll-container { overflow-x: auto; width: 100%; border-radius: 8px; border: 1px solid #cbd5e1; }
-        .row-content { display: inline-flex; min-width: 1750px; background: white; border-bottom: 1px solid #e2e8f0; align-items: stretch; }
-        .header-row { display: inline-flex; min-width: 1750px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
+        .row-content { display: inline-flex; min-width: 1700px; background: white; border-bottom: 1px solid #e2e8f0; align-items: stretch; }
+        .header-row { display: inline-flex; min-width: 1700px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
 
-        /* 컬럼 너비 조정 (요청사항: 수량 및 재질 축소) */
-        .w-order { width: 170px; flex-shrink: 0; }
-        .w-qty { width: 70px; flex-shrink: 0; } 
+        /* 컬럼 너비 추가 최적화 (요청사항 반영) */
+        .w-order { width: 160px; flex-shrink: 0; }
+        .w-qty { width: 60px; flex-shrink: 0; } /* 70px -> 60px 축소 */
         .w-dim { width: 480px; flex-shrink: 0; }
-        .w-mat { width: 220px; flex-shrink: 0; }
+        .w-mat { width: 200px; flex-shrink: 0; } /* 220px -> 200px 축소 */
         .w-weight { width: 180px; flex-shrink: 0; }
         .w-work { width: 500px; flex-shrink: 0; }
         .w-remark { width: 350px; flex-shrink: 0; flex-grow: 1; }
@@ -116,14 +116,14 @@
         .header-cell { @apply flex items-center justify-center px-2 py-2 font-black text-xs border-r border-slate-700 uppercase tracking-tighter; }
 
         /* 폰트 및 가독성 최적화 (요청사항: 투입중량 축소) */
-        .val-order { font-size: 1.2rem; font-weight: 900; }
-        .val-qty { font-size: 2.0rem; font-weight: 950; color: #2563eb; line-height: 1; }
+        .val-order { font-size: 1.15rem; font-weight: 900; }
+        .val-qty { font-size: 1.8rem; font-weight: 950; color: #2563eb; line-height: 1; }
         .val-dim { font-size: 1.5rem; font-weight: 800; line-height: 1.1; }
         .val-sn-box { @apply mt-1 px-3 py-0.5 bg-white border border-blue-500 rounded-full font-black text-sm text-blue-700 shadow-sm inline-block; }
-        .val-mat { font-size: 1.05rem; font-weight: 700; }
-        .val-weight { font-size: 2.1rem; font-weight: 950; color: #ea580c; line-height: 1; white-space: nowrap; } 
-        .val-work { font-size: 1.4rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1.2; }
-        .val-remark { font-size: 1.0rem; font-weight: 700; color: #92400e; white-space: normal; }
+        .val-mat { font-size: 1rem; font-weight: 700; line-height: 1.2; }
+        .val-weight { font-size: 1.8rem; font-weight: 950; color: #ea580c; line-height: 1; white-space: nowrap; } /* 2.1rem -> 1.8rem 조정 */
+        .val-work { font-size: 1.35rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1.15; }
+        .val-remark { font-size: 0.95rem; font-weight: 700; color: #92400e; white-space: normal; }
 
         .shift-banner { @apply w-full py-2 px-4 mb-1 rounded-lg flex justify-between items-center shadow-sm border-b-[8px]; }
         .ctrl-panel { @apply bg-white p-2 rounded-xl shadow-md border border-slate-200 mb-2; }
@@ -198,21 +198,33 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                window.workbookObj = workbook;
+
+                const now = new Date();
+                const currentMonthPart = `${String(now.getFullYear()).slice(-2)}년 ${now.getMonth() + 1}월`; // 예: "26년 1월"
+                
                 const selector = document.getElementById('sheet-selector');
                 selector.innerHTML = '';
                 
+                // 1. 시트 목록 구성 및 최적 시트(현재 월) 찾기
                 const validSheets = workbook.SheetNames.filter(name => name.includes('계획서') || name.includes('월'));
+                let bestSheetName = validSheets[0]; // 기본값
+
                 validSheets.forEach(name => {
                     const opt = document.createElement('option');
                     opt.value = name; opt.innerText = name;
+                    if (name.includes(currentMonthPart)) bestSheetName = name;
                     selector.appendChild(opt);
                 });
 
-                window.workbookObj = workbook;
+                // 2. 최적 시트 선택
+                if (bestSheetName) selector.value = bestSheetName;
+
                 document.getElementById('admin-actions').classList.remove('hidden');
                 document.getElementById('welcome-state').classList.add('hidden');
                 document.getElementById('main-ui').classList.remove('hidden');
                 
+                // 3. 데이터 분석 및 오늘 날짜 매칭 실행
                 processExcelData();
                 toggleLoading(false);
             };
@@ -221,7 +233,7 @@
 
         function processExcelData() {
             const sheetName = document.getElementById('sheet-selector').value;
-            if (!sheetName) return;
+            if (!sheetName || !window.workbookObj) return;
             const worksheet = window.workbookObj.Sheets[sheetName];
             currentSheetFullData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
             
