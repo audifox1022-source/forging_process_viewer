@@ -3,388 +3,381 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>태웅 TPMS - 초고가독성 공정 뷰어</title>
+    <title>태웅 TPMS - 클라우드 공정 뷰어</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        // Global Firebase Config (Environment Provided)
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'taewoong-tpms-v1';
+
+        // State
+        let currentData = {};
+        let user = null;
+
+        // Initialize Auth
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    const res = await signInWithCustomToken(auth, __initial_auth_token);
+                    user = res.user;
+                } else {
+                    const res = await signInAnonymously(auth);
+                    user = res.user;
+                }
+                if(user) listenToCloudData();
+            } catch (error) {
+                console.error("인증 실패:", error);
+            }
+        };
+
+        // Cloud Storage Functions
+        window.saveToCloud = async () => {
+            if(!user || !currentSheetFullData) return;
+            const sheetName = document.getElementById('sheet-selector').value;
+            const dateStr = document.getElementById('date-picker').value;
+            if(!dateStr) return;
+
+            toggleLoading(true, "클라우드에 저장 중...");
+            try {
+                const docId = `${sheetName}_${dateStr}`;
+                const dataToSave = {
+                    date: dateStr,
+                    sheet: sheetName,
+                    procs: JSON.stringify(currentProcessList), // Simple serialization
+                    dayLead: currentDayLead,
+                    nightLead: currentNightLead,
+                    updatedAt: new Date().toISOString()
+                };
+                
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId);
+                await setDoc(docRef, dataToSave);
+                showToast("클라우드 저장 완료! 이제 현장에서 바로 볼 수 있습니다.");
+            } catch (e) {
+                console.error(e);
+                showToast("저장 실패: 권한이 없거나 네트워크 오류입니다.");
+            }
+            toggleLoading(false);
+        };
+
+        function listenToCloudData() {
+            const sheetName = document.getElementById('sheet-selector').value;
+            const dateStr = document.getElementById('date-picker').value;
+            if(!dateStr) return;
+
+            const docId = `${sheetName}_${dateStr}`;
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId);
+            
+            onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    renderFromCloud(JSON.parse(data.procs), data.dayLead, data.nightLead);
+                }
+            }, (err) => console.error("데이터 수신 오류:", err));
+        }
+
+        window.loadCurrentFromCloud = () => {
+            if (user) listenToCloudData();
+        };
+
+        window.onload = () => initAuth();
+    </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800;900&display=swap');
-        body { font-family: 'Pretendard', sans-serif; background-color: #f1f5f9; color: #0f172a; letter-spacing: -0.05em; }
+        body { font-family: 'Pretendard', sans-serif; background-color: #f1f5f9; color: #0f172a; letter-spacing: -0.05em; overflow-x: hidden; }
         
-        /* 전체 컨테이너 */
         .container-full { width: 100%; max-width: 100%; padding: 0 1rem; }
         
-        /* 1단 그리드 고정 (1 x X 형태) */
-        .process-grid { 
-            display: grid; 
-            grid-template-columns: 1fr; 
-            gap: 0.5rem; 
-        }
+        /* 1xX 레이아웃 - 겹침 방지 핵심 */
+        .scroll-container { overflow-x: auto; width: 100%; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+        .data-row { display: inline-flex; min-width: 2100px; background: white; border-bottom: 2px solid #e2e8f0; align-items: stretch; }
+        .data-header { display: inline-flex; min-width: 2100px; background: #1e293b; color: white; position: sticky; top: 0; z-index: 30; }
 
-        /* 고정 헤더 스타일 */
-        .column-header {
-            @apply bg-slate-800 border-b-4 border-blue-600 flex items-stretch font-black text-white sticky top-[60px] z-40 shadow-md;
-            min-height: 55px;
-        }
+        /* 셀 너비 고정 (글자 겹침 방지) */
+        .cell-order { width: 280px; flex-shrink: 0; }
+        .cell-qty { width: 140px; flex-shrink: 0; }
+        .cell-dim { width: 550px; flex-shrink: 0; }
+        .cell-mat { width: 320px; flex-shrink: 0; }
+        .cell-weight { width: 250px; flex-shrink: 0; }
+        .cell-work { width: 650px; flex-shrink: 0; }
+        .cell-remark { width: 450px; flex-shrink: 0; }
 
-        /* 가로 바 스타일 카드 */
-        .high-visibility-bar {
-            @apply bg-white border-2 border-slate-300 rounded-xl shadow-sm overflow-hidden flex items-stretch;
-            transition: all 0.2s ease;
-            min-height: 130px;
-        }
-        .high-visibility-bar:hover { 
-            @apply border-blue-600 shadow-xl;
-            transform: scale(1.002);
-        }
+        .cell-content { @apply flex flex-col justify-center px-6 py-5 border-r border-slate-100; }
+        .header-content { @apply flex items-center justify-center px-6 py-4 font-black text-lg border-r border-slate-700 uppercase; }
 
-        /* 정보 셀 공통 스타일 */
-        .data-cell {
-            @apply flex flex-col justify-center px-6 border-r-2 border-slate-100 py-4;
-        }
-        .header-cell {
-            @apply flex items-center justify-center px-6 border-r border-slate-700 py-2 text-base uppercase tracking-tighter;
-        }
-        .data-cell:last-child, .header-cell:last-child { border-right: none; }
+        /* 폰트 및 가시성 */
+        .val-order { font-size: 1.8rem; font-weight: 900; }
+        .val-qty { font-size: 3rem; font-weight: 950; color: #2563eb; }
+        .val-dim { font-size: 2.2rem; font-weight: 900; line-height: 1; }
+        .val-sn-tag { @apply mt-3 px-8 py-2 bg-white border-4 border-blue-500 rounded-full font-black text-2xl text-blue-700 shadow-lg inline-block mx-auto; }
+        .val-mat { font-size: 1.6rem; font-weight: 700; }
+        .val-weight { font-size: 4rem; font-weight: 950; color: #ea580c; line-height: 0.8; }
+        .val-work { font-size: 1.9rem; font-weight: 900; color: #064e3b; white-space: normal; line-height: 1.2; }
+        .val-remark { font-size: 1.5rem; font-weight: 700; color: #92400e; white-space: normal; }
 
-        /* 폰트 사이즈 및 스타일 */
-        .val-order { font-size: 1.8rem; font-weight: 900; color: #ffffff; line-height: 1; }
-        .val-qty { font-size: 2.6rem; font-weight: 950; color: #2563eb; line-height: 1; }
-        .val-dim { font-size: 1.9rem; font-weight: 900; color: #1e293b; line-height: 1.1; }
-        .val-sn-box { @apply mt-3 px-6 py-1 bg-white border-2 border-blue-400 rounded-full shadow-sm text-center; }
-        .val-sn { font-size: 1.4rem; font-weight: 800; color: #1e40af; }
-        .val-mat { font-size: 1.5rem; font-weight: 700; color: #334155; }
-        .val-weight { font-size: 3.4rem; font-weight: 950; color: #ea580c; line-height: 1; }
-        .val-work { font-size: 1.8rem; font-weight: 900; color: #064e3b; line-height: 1.2; }
-        .val-remark { font-size: 1.4rem; font-weight: 700; color: #92400e; line-height: 1.2; }
+        .shift-banner { @apply w-full py-6 px-10 mb-4 rounded-3xl flex justify-between items-center shadow-xl border-b-[20px]; }
         
-        /* 애니메이션 */
-        .fade-in-up { animation: fadeInUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
-        @keyframes fadeInUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* 가로 스크롤 최적화 */
-        .scroll-wrapper { overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; }
-        .row-content { display: flex; min-width: 1900px; width: 100%; align-items: stretch; }
-
-        /* 컬럼별 너비 정의 (고정폭) */
-        .w-order { min-width: 250px; }
-        .w-qty { min-width: 140px; }
-        .w-dim { min-width: 550px; }
-        .w-mat { min-width: 300px; }
-        .w-weight { min-width: 240px; }
-        .w-work { min-width: 600px; }
-        .w-remark { min-width: 400px; flex: 1; }
-
         /* 스크롤바 */
-        ::-webkit-scrollbar { height: 14px; width: 14px; }
+        ::-webkit-scrollbar { height: 18px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 3px solid #f1f5f9; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; border: 4px solid #f1f5f9; }
     </style>
 </head>
-<body class="pb-16">
+<body class="pb-20">
 
-    <!-- 메인 헤더 -->
-    <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-2xl border-b-4 border-blue-600 px-6 py-3">
+    <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-2xl border-b-4 border-blue-600 px-6 py-4">
         <div class="flex justify-between items-center">
-            <h1 class="text-3xl font-black tracking-tighter italic">
-                TAEWOONG <span class="text-blue-500 font-black">TPMS</span>
-            </h1>
-            <div class="flex items-center gap-6">
-                <div id="current-sheet-display" class="hidden lg:block text-sm font-black text-blue-300 bg-blue-900/40 px-4 py-1.5 rounded-xl border border-blue-700/30 tracking-tight">계획 파일을 업로드하세요</div>
-                <label for="excel-upload" class="bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white px-8 py-3 rounded-2xl text-base font-black cursor-pointer transition-all shadow-lg flex items-center gap-3">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-                    파일 업로드
+            <h1 class="text-3xl font-black italic tracking-tighter">TAEWOONG <span class="text-blue-500">TPMS</span></h1>
+            <div class="flex items-center gap-4">
+                <div id="sync-status" class="bg-emerald-900/50 text-emerald-400 text-xs font-black px-3 py-1.5 rounded-lg border border-emerald-500/30">CLOUD CONNECTED</div>
+                <label for="excel-upload" class="bg-blue-600 hover:bg-blue-500 px-6 py-2.5 rounded-2xl text-sm font-black cursor-pointer shadow-lg transition-all flex items-center gap-2">
+                    📁 파일 업로드(관리자)
                 </label>
                 <input id="excel-upload" type="file" class="hidden" accept=".xls,.xlsx" onchange="handleExcelUpload(event)">
             </div>
         </div>
     </header>
 
-    <main class="container-full pt-6">
+    <main class="container-full mt-6">
         <!-- 초기 가이드 -->
-        <div id="welcome-state" class="bg-white rounded-[3rem] p-20 text-center border-4 border-slate-200 shadow-sm mt-10 max-w-4xl mx-auto fade-in-up">
-            <div class="bg-blue-100 w-36 h-36 rounded-full flex items-center justify-center mx-auto mb-10 shadow-inner text-7xl">⚒️</div>
-            <h2 class="text-5xl font-black text-slate-800 mb-6 tracking-tighter uppercase font-serif italic">Forge Instruction Master</h2>
+        <div id="welcome-state" class="bg-white rounded-[3rem] p-16 text-center border-4 border-slate-200 shadow-sm mt-10 max-w-4xl mx-auto">
+            <div class="text-8xl mb-8">🏗️</div>
+            <h2 class="text-5xl font-black text-slate-800 mb-6 uppercase italic">Forge View Pro</h2>
             <p class="text-slate-500 text-2xl font-bold leading-relaxed">
-                계획서 엑셀을 업로드하여<br>
-                <span class="text-blue-600 underline underline-offset-8 font-black">34열/65열 작업자 기반 지시서</span>를 확인하세요.
+                관리자가 업로드한 계획서를<br>
+                <span class="text-blue-600 underline underline-offset-8">실시간 클라우드 동기화</span>로 확인하세요.
             </p>
         </div>
 
-        <!-- 컨트롤 패널 -->
-        <div id="selection-panel" class="hidden space-y-6 mb-10">
-            <div class="bg-white p-6 rounded-[2.5rem] shadow-xl border-4 border-slate-200">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+        <div id="main-ui" class="hidden space-y-8 animate-in">
+            <!-- 상단 컨트롤러 -->
+            <div class="bg-white p-8 rounded-[2.5rem] shadow-2xl border-4 border-slate-200">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-8 items-end">
                     <div>
-                        <label class="text-sm font-black text-blue-700 mb-2 block ml-2 uppercase tracking-widest">📅 작업 일자 선택</label>
-                        <input type="date" id="date-picker" onchange="renderProcessList()" 
-                               class="w-full p-5 bg-slate-50 border-4 border-slate-200 rounded-[1.5rem] outline-none font-black text-2xl cursor-pointer focus:border-blue-500 transition-all">
+                        <label class="text-lg font-black text-blue-700 mb-2 block ml-2">📅 작업 일자</label>
+                        <input type="date" id="date-picker" onchange="loadCurrentFromCloud()" 
+                               class="w-full p-5 bg-slate-50 border-4 border-slate-200 rounded-3xl outline-none font-black text-3xl cursor-pointer focus:border-blue-500">
                     </div>
                     <div>
-                        <label class="text-sm font-black text-blue-700 mb-2 block ml-2 uppercase tracking-widest">📄 대상 시트 선택</label>
-                        <select id="sheet-selector" onchange="loadSelectedSheet()" 
-                                class="w-full p-5 bg-slate-50 border-4 border-slate-200 rounded-[1.5rem] outline-none font-black text-2xl appearance-none cursor-pointer focus:border-blue-500 transition-all">
+                        <label class="text-lg font-black text-blue-700 mb-2 block ml-2">📄 시트 선택</label>
+                        <select id="sheet-selector" onchange="loadCurrentFromCloud()" 
+                                class="w-full p-5 bg-slate-50 border-4 border-slate-200 rounded-3xl outline-none font-black text-3xl appearance-none cursor-pointer focus:border-blue-500">
                         </select>
                     </div>
                     <div class="md:col-span-2 flex gap-4">
-                        <button onclick="changeDate(-1)" class="flex-1 bg-slate-800 hover:bg-black text-white font-black py-5 rounded-[1.5rem] transition active:scale-95 text-xl shadow-lg">이전 날짜</button>
-                        <button onclick="changeDate(1)" class="flex-1 bg-slate-800 hover:bg-black text-white font-black py-5 rounded-[1.5rem] transition active:scale-95 text-xl shadow-lg">다음 날짜</button>
+                        <button onclick="changeDate(-1)" class="flex-1 bg-slate-800 text-white font-black py-6 rounded-3xl text-2xl shadow-lg active:scale-95 transition">이전 날짜</button>
+                        <button onclick="changeDate(1)" class="flex-1 bg-slate-800 text-white font-black py-6 rounded-3xl text-2xl shadow-lg active:scale-95 transition">다음 날짜</button>
                     </div>
+                </div>
+                <div id="admin-actions" class="mt-8 pt-6 border-t-2 border-dashed border-slate-200 flex justify-end hidden">
+                    <button onclick="saveToCloud()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-10 py-4 rounded-2xl text-xl shadow-xl flex items-center gap-3">
+                        ☁️ 현재 데이터를 현장에 배포 (클라우드 저장)
+                    </button>
                 </div>
             </div>
 
-            <!-- 공정 리스트 섹션 -->
-            <div id="process-list" class="space-y-16 pb-32">
-                <!-- Shift sections injected via JS -->
-            </div>
+            <!-- 데이터 리스트 -->
+            <div id="process-list" class="space-y-20 pb-40"></div>
         </div>
     </main>
 
-    <!-- 로딩 오버레이 -->
-    <div id="loading-overlay" class="fixed inset-0 bg-slate-900/95 backdrop-blur-2xl hidden flex items-center justify-center z-[100]">
-        <div class="bg-white px-20 py-16 rounded-[5rem] shadow-2xl flex flex-col items-center">
-            <div class="w-24 h-24 border-8 border-blue-600 border-t-transparent rounded-full animate-spin mb-10"></div>
-            <p class="font-black text-slate-800 text-4xl tracking-tighter uppercase italic">Processing Data...</p>
+    <div id="loading-overlay" class="fixed inset-0 bg-slate-900/90 backdrop-blur-3xl hidden flex items-center justify-center z-[100]">
+        <div class="bg-white px-20 py-16 rounded-[4rem] shadow-2xl flex flex-col items-center">
+            <div class="w-24 h-24 border-8 border-blue-600 border-t-transparent rounded-full animate-spin mb-8"></div>
+            <p id="loading-text" class="font-black text-slate-800 text-4xl tracking-tighter">PROCESSING...</p>
         </div>
     </div>
 
     <script>
-        let workbook = null;
-        let currentSheetData = [];
+        let currentSheetFullData = null;
+        let currentProcessList = [];
+        let currentDayLead = '미정';
+        let currentNightLead = '미정';
         let dateColumns = {};
-
-        function formatExcelDate(serial) {
-            if (isNaN(serial)) return null;
-            const date = new Date((serial - 25569) * 86400 * 1000);
-            return date.toISOString().split('T')[0];
-        }
 
         async function handleExcelUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
-            toggleLoading(true);
+            toggleLoading(true, "엑셀 파일을 분석 중입니다...");
 
             const reader = new FileReader();
             reader.onload = function(e) {
                 const data = new Uint8Array(e.target.result);
-                workbook = XLSX.read(data, { type: 'array' });
-                initSheetSelector();
-                toggleLoading(false);
+                const workbook = XLSX.read(data, { type: 'array' });
+                
+                const selector = document.getElementById('sheet-selector');
+                selector.innerHTML = '';
+                workbook.SheetNames.forEach(name => {
+                    if(name.includes('계획서') || name.includes('월')) {
+                        const opt = document.createElement('option');
+                        opt.value = name; opt.innerText = name;
+                        selector.appendChild(opt);
+                    }
+                });
+
+                window.workbookObj = workbook;
+                document.getElementById('admin-actions').classList.remove('hidden');
                 document.getElementById('welcome-state').classList.add('hidden');
-                document.getElementById('selection-panel').classList.remove('hidden');
+                document.getElementById('main-ui').classList.remove('hidden');
+                
+                processExcelData();
+                toggleLoading(false);
             };
             reader.readAsArrayBuffer(file);
         }
 
-        function initSheetSelector() {
-            const selector = document.getElementById('sheet-selector');
-            selector.innerHTML = '';
-            workbook.SheetNames.forEach(name => {
-                if(name.includes('계획서') || name.includes('월')) {
-                    const option = document.createElement('option');
-                    option.value = name; option.innerText = name;
-                    selector.appendChild(option);
-                }
-            });
-            loadSelectedSheet();
-        }
-
-        function loadSelectedSheet() {
+        function processExcelData() {
             const sheetName = document.getElementById('sheet-selector').value;
-            const display = document.getElementById('current-sheet-display');
-            if (display) display.innerText = sheetName;
-
-            const worksheet = workbook.Sheets[sheetName];
-            currentSheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            const worksheet = window.workbookObj.Sheets[sheetName];
+            currentSheetFullData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
             
             dateColumns = {};
-            if (currentSheetData.length > 0) {
-                currentSheetData[0].forEach((cell, idx) => {
-                    if (typeof cell === 'number' && cell > 40000 && cell < 60000) {
-                        const dateStr = formatExcelDate(cell);
-                        dateColumns[dateStr] = idx;
-                    }
-                });
-            }
+            currentSheetFullData[0].forEach((cell, idx) => {
+                if (typeof cell === 'number' && cell > 40000) {
+                    const d = new Date((cell - 25569) * 86400 * 1000);
+                    dateColumns[d.toISOString().split('T')[0]] = idx;
+                }
+            });
 
             const availableDates = Object.keys(dateColumns).sort();
             if (availableDates.length > 0) {
-                const targetDate = "2026-01-13";
-                document.getElementById('date-picker').value = availableDates.includes(targetDate) ? targetDate : availableDates[0];
-                renderProcessList();
+                document.getElementById('date-picker').value = availableDates[0];
+                analyzeAndPrepareData();
             }
         }
 
-        function renderProcessList() {
-            const selectedDate = document.getElementById('date-picker').value;
+        function analyzeAndPrepareData() {
+            const dateStr = document.getElementById('date-picker').value;
+            const colIdx = dateColumns[dateStr];
+            if (colIdx === undefined) return;
+
+            currentProcessList = [];
+            // 4~33, 35~64
+            for(let i=3; i<=63; i++) {
+                if(i === 33) continue; // 34행 제외
+                const row = currentSheetFullData[i];
+                if(row && row[colIdx] && row[colIdx].toString().length >= 4) {
+                    currentProcessList.push({
+                        rowIdx: i,
+                        id: row[colIdx],
+                        dim: (row[colIdx+1]||'').toString(),
+                        matOrder: (row[colIdx+2]||'').toString(),
+                        matIn: (row[colIdx+3]||'').toString(),
+                        qty: (row[colIdx+4]||'1').toString(),
+                        work: (row[colIdx+5]||'').toString(),
+                        remark: (row[colIdx+6]||'').toString(),
+                        weight: (row[colIdx+7]||'').toString()
+                    });
+                }
+            }
+            
+            currentDayLead = currentSheetFullData[33] ? (currentSheetFullData[33][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
+            currentNightLead = currentSheetFullData[64] ? (currentSheetFullData[64][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
+            
+            renderFromCloud(currentProcessList, currentDayLead, currentNightLead);
+        }
+
+        function renderFromCloud(procs, dayLead, nightLead) {
             const container = document.getElementById('process-list');
             container.innerHTML = '';
+            document.getElementById('welcome-state').classList.add('hidden');
+            document.getElementById('main-ui').classList.remove('hidden');
 
-            const colIdx = dateColumns[selectedDate];
-            if (colIdx === undefined) {
-                container.innerHTML = `<div class="text-center py-20 text-slate-400 font-black text-4xl bg-white rounded-[3rem] border-4 border-dashed tracking-tighter italic uppercase">No Data Found for this Date</div>`;
-                return;
-            }
+            const dayItems = procs.filter(p => p.rowIdx <= 32);
+            const nightItems = procs.filter(p => p.rowIdx >= 34);
 
-            let dayProcs = [];
-            let nightProcs = [];
-            
-            // 1. 주간 (4~33행 스캔)
-            for (let i = 3; i <= 32; i++) {
-                const row = currentSheetData[i];
-                if (row) {
-                    const proc = extractRowData(row, colIdx);
-                    if (proc) dayProcs.push(proc);
-                }
-            }
-
-            // 2. 야간 (35~64행 스캔)
-            for (let i = 34; i <= 63; i++) {
-                const row = currentSheetData[i];
-                if (row) {
-                    const proc = extractRowData(row, colIdx);
-                    if (proc) nightProcs.push(proc);
-                }
-            }
-
-            // 3. 작업자 이름 추출 (34열과 65열 기준 - index 33, 64)
-            const dayLeadRow = currentSheetData[33];
-            const nightLeadRow = currentSheetData[64];
-            
-            const dayLead = dayLeadRow && dayLeadRow[colIdx + 8] ? 
-                          dayLeadRow[colIdx + 8].toString().replace(/주간|야간|\//g, '').trim() : '미정';
-            const nightLead = nightLeadRow && nightLeadRow[colIdx + 8] ? 
-                            nightLeadRow[colIdx + 8].toString().replace(/주간|야간|\//g, '').trim() : '미정';
-
-            renderShiftSection(`☀️ 주간공정 [${dayLead}]`, dayProcs, "blue", container);
-            renderShiftSection(`🌙 야간공정 [${nightLead}]`, nightProcs, "slate", container);
-        }
-
-        function extractRowData(row, colIdx) {
-            const orderNo = row[colIdx];
-            if (orderNo && orderNo.toString().trim().length >= 4) {
-                // S/N 분리 로직 (치수 데이터에서 S/N 분리)
-                let dimRaw = (row[colIdx + 1] || '').toString();
-                let parts = dimRaw.split(/S\/N|s\/n/i);
-                let dimPart = parts[0].trim();
-                let snPart = parts.length > 1 ? 'S/N ' + parts[1].replace(/[:]/g, '').trim() : '';
-
-                return {
-                    id: orderNo,
-                    dim: dimPart,
-                    sn: snPart,
-                    matOrder: row[colIdx + 2] || '-',
-                    matIn: row[colIdx + 3] || '-',
-                    qty: row[colIdx + 4] || '1',
-                    work: row[colIdx + 5] || '-',
-                    remark: row[colIdx + 6] || '-',
-                    weight: row[colIdx + 7] || '-'
-                };
-            }
-            return null;
+            renderShiftSection(`☀️ 주간공정 [${dayLead}]`, dayItems, "blue", container);
+            renderShiftSection(`🌙 야간공정 [${nightLead}]`, nightItems, "slate", container);
         }
 
         function renderShiftSection(title, items, theme, container) {
             const section = document.createElement('div');
-            section.className = "fade-in-up";
-            
             const borderColor = theme === 'blue' ? 'border-blue-600' : 'border-slate-800';
-            const textColor = theme === 'blue' ? 'text-blue-700' : 'text-slate-900';
+            const bgColor = theme === 'blue' ? 'bg-blue-700' : 'bg-slate-900';
             
             section.innerHTML = `
-                <div class="flex items-center justify-between mb-2 pb-5 border-b-[16px] ${borderColor} px-2">
-                    <h2 class="text-5xl font-black ${textColor} uppercase tracking-tighter italic">${title}</h2>
-                    <span class="text-3xl font-black px-10 py-3 bg-slate-200 rounded-[2rem] text-slate-700 shadow-inner">${items.length} PCS</span>
+                <div class="shift-banner ${bgColor} ${borderColor} text-white">
+                    <h2 class="text-6xl font-black italic tracking-tighter">${title}</h2>
+                    <span class="text-4xl font-black opacity-60">${items.length} PCS</span>
                 </div>
-                
-                <div class="scroll-wrapper">
-                    <!-- 헤더 행 (고정폭 컬럼 제목) -->
-                    <div class="row-content column-header mb-4">
-                        <div class="header-cell w-order bg-slate-900 text-white">수주번호</div>
-                        <div class="header-cell w-qty bg-blue-700">수량</div>
-                        <div class="header-cell w-dim bg-blue-900 text-blue-100 italic">수주치수 / S/N</div>
-                        <div class="header-cell w-mat bg-slate-700">재질 (수주/사내)</div>
-                        <div class="header-cell w-weight bg-orange-700">투입중량</div>
-                        <div class="header-cell w-work bg-emerald-900 text-emerald-100">작업 지시 상세</div>
-                        <div class="header-cell w-remark bg-amber-800">현장 특이사항</div>
+                <div class="scroll-container shadow-2xl rounded-3xl border-4 border-slate-200">
+                    <div class="data-header">
+                        <div class="header-content cell-order bg-slate-950">수주번호</div>
+                        <div class="header-content cell-qty bg-blue-800">수량</div>
+                        <div class="header-content cell-dim bg-blue-900">수주치수 / S/N</div>
+                        <div class="header-content cell-mat bg-slate-800">재질 (수주/사내)</div>
+                        <div class="header-content cell-weight bg-orange-700">투입중량</div>
+                        <div class="header-content cell-work bg-emerald-900">작업 지시 상세</div>
+                        <div class="header-content cell-remark bg-amber-800">현장 특이사항</div>
                     </div>
-
-                    <div class="process-grid">
-                        ${items.length === 0 ? '<p class="text-3xl text-slate-400 py-24 font-black text-center w-full bg-white rounded-[4rem] border-8 border-dashed tracking-tighter uppercase opacity-50">Empty Assignments</p>' : ''}
+                    <div class="flex flex-col">
+                        ${items.map(p => createRowHTML(p)).join('')}
                     </div>
                 </div>
             `;
-
-            const grid = section.querySelector('.process-grid');
-            items.forEach(item => grid.appendChild(createHighVisRow(item)));
             container.appendChild(section);
         }
 
-        function createHighVisRow(item) {
-            const card = document.createElement('div');
-            card.className = "high-visibility-bar";
-            
-            card.innerHTML = `
-                <div class="row-content">
-                    <!-- 1. 수주번호 (검정 배경 & 화이트 텍스트) -->
-                    <div class="data-cell bg-slate-900 w-order flex items-center justify-center text-center">
-                        <span class="val-order tracking-tighter">${item.id}</span>
-                    </div>
+        function createRowHTML(p) {
+            const snParts = p.dim.split(/S\/N|s\/n/i);
+            const dimMain = snParts[0].trim();
+            const snTag = snParts.length > 1 ? `S/N ${snParts[1].replace(/[:]/g,'').trim()}` : '';
 
-                    <!-- 2. 수량 (파랑 배경 & 초대형 텍스트) -->
-                    <div class="data-cell w-qty text-center bg-slate-50 border-x-4 border-slate-200">
-                        <span class="val-qty">${item.qty}</span>
+            return `
+                <div class="data-row">
+                    <div class="cell-content cell-order bg-slate-900 text-white text-center">
+                        <span class="val-order">${p.id}</span>
                     </div>
-
-                    <!-- 3. 수주 치수 & S/N (하늘색 - 상하 중앙 정렬) -->
-                    <div class="data-cell w-dim bg-blue-50/70 flex flex-col justify-center items-center text-center px-10">
-                        <span class="val-dim">${item.dim.replace(/\n/g, ' ')}</span>
-                        ${item.sn ? `
-                            <div class="val-sn-box">
-                                <span class="val-sn">${item.sn}</span>
-                            </div>
-                        ` : ''}
+                    <div class="cell-content cell-qty text-center bg-slate-50">
+                        <span class="val-qty">${p.qty}</span>
                     </div>
-
-                    <!-- 4. 재질 정보 (수주/사내 대비) -->
-                    <div class="data-cell w-mat bg-white">
+                    <div class="cell-content cell-dim bg-blue-50/50 text-center">
+                        <span class="val-dim">${dimMain}</span>
+                        ${snTag ? `<div class="val-sn-tag">${snTag}</div>` : ''}
+                    </div>
+                    <div class="cell-content cell-mat bg-white">
                         <div class="flex flex-col gap-2">
-                            <span class="val-mat"><span class="bg-blue-600 text-white text-xs px-2 py-0.5 rounded mr-3">수주</span>${item.matOrder}</span>
-                            <span class="val-mat"><span class="bg-slate-500 text-white text-xs px-2 py-0.5 rounded mr-3">사내</span>${item.matIn}</span>
+                            <span class="val-mat"><span class="bg-blue-600 text-white text-xs px-2 py-1 rounded mr-3">수주</span>${p.matOrder}</span>
+                            <span class="val-mat"><span class="bg-slate-500 text-white text-xs px-2 py-1 rounded mr-3">사내</span>${p.matIn}</span>
                         </div>
                     </div>
-
-                    <!-- 5. 투입중량 (오렌지 강조 - 압도적 크기) -->
-                    <div class="data-cell w-weight bg-orange-50 border-x-[6px] border-orange-400">
-                        <span class="val-weight">${item.weight}<small class="text-2xl font-black ml-1 text-orange-900 italic">T</small></span>
+                    <div class="cell-content cell-weight bg-orange-50 border-x-4 border-orange-200 text-center">
+                        <span class="val-weight">${p.weight}<small class="text-3xl ml-1 font-black italic">T</small></span>
                     </div>
-
-                    <!-- 6. 작업내용 (에메랄드 강조) -->
-                    <div class="data-cell w-work bg-emerald-50/50 border-r-4 border-emerald-200">
-                        <span class="val-work font-black tracking-tight">${item.work}</span>
+                    <div class="cell-content cell-work bg-emerald-50">
+                        <span class="val-work font-black">${p.work}</span>
                     </div>
-
-                    <!-- 7. 비고 (황색 강조) -->
-                    <div class="data-cell w-remark bg-amber-50">
-                        <div class="val-remark flex items-start gap-3">
-                            ${item.remark !== '-' ? '<span class="text-3xl mt-1">📌</span><span class="leading-tight">' + item.remark + '</span>' : '-'}
-                        </div>
+                    <div class="cell-content cell-remark bg-amber-50">
+                        <span class="val-remark">${p.remark !== '-' ? '📌 ' + p.remark : '-'}</span>
                     </div>
                 </div>
             `;
-            return card;
+        }
+
+        function toggleLoading(show, text = "LOADING...") {
+            document.getElementById('loading-overlay').classList.toggle('hidden', !show);
+            const loadingText = document.getElementById('loading-text');
+            if (loadingText) loadingText.innerText = text;
+        }
+
+        function showToast(msg) {
+            alert(msg);
         }
 
         function changeDate(days) {
-            const picker = document.getElementById('date-picker');
-            const d = new Date(picker.value);
+            const p = document.getElementById('date-picker');
+            const d = new Date(p.value);
             d.setDate(d.getDate() + days);
-            picker.value = d.toISOString().split('T')[0];
-            renderProcessList();
-        }
-
-        function toggleLoading(show) {
-            document.getElementById('loading-overlay').classList.toggle('hidden', !show);
+            p.value = d.toISOString().split('T')[0];
+            loadCurrentFromCloud();
         }
     </script>
 </body>
