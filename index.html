@@ -9,7 +9,7 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         // ==========================================================
@@ -55,18 +55,19 @@
                     if (user) {
                         updateStatus("ONLINE SYNC ACTIVE", "active");
                         setTodayDateInput();
-                        // 인증 완료 즉시 UI 노출
                         document.getElementById('welcome-state').classList.add('hidden');
                         document.getElementById('main-ui').classList.remove('hidden');
-                        // 초기 자동 조회 시도
-                        window.loadCurrentFromCloud();
                     } else {
                         updateStatus("AUTHENTICATING...", "info");
                     }
                 });
 
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token && __initial_auth_token !== "") {
+                    try {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } catch (tokenError) {
+                        await signInAnonymously(auth);
+                    }
                 } else {
                     await signInAnonymously(auth);
                 }
@@ -83,6 +84,7 @@
             if (datePicker && !datePicker.value) datePicker.value = todayStr;
         }
 
+        // 클라우드 저장 (덮어쓰기 로직 강화)
         window.saveToCloud = async () => {
             if (!user || !db) {
                 showToast("인증 진행 중입니다. 잠시 후 시도하세요.", "⏳");
@@ -99,17 +101,21 @@
 
             toggleLoading(true, "클라우드 서버에 배포 중...");
             try {
-                const docId = `${sheetName}_${dateStr}`;
+                // 날짜(dateStr)를 문서 ID로 사용함으로써, 동일 날짜에 대해 시트 이름이 다르더라도 
+                // 기존 데이터를 무조건 삭제/덮어쓰기 하도록 함.
+                const docId = dateStr; 
                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId);
+                
                 await setDoc(docRef, {
                     date: dateStr,
                     sheet: sheetName,
                     procs: JSON.stringify(processList),
                     dayLead: window.currentDayLead || '미정',
                     nightLead: window.currentNightLead || '미정',
-                    updatedAt: new Date().toISOString()
+                    updatedAt: new Date().toISOString(),
+                    author: user.uid
                 });
-                showToast("✅ 배포 완료! 현장에서 즉시 조회 가능합니다.");
+                showToast("✅ 배포 완료! 기존 데이터가 최신으로 교체되었습니다.");
             } catch (e) {
                 console.error(e);
                 showToast("❌ 저장 권한 오류", "⚠️");
@@ -118,53 +124,38 @@
             }
         };
 
-        // 클라우드 조회 로직 개선 (날짜 기준 통합 검색)
+        // 클라우드 조회 로직 (날짜 기반 단일 문서 조회)
         window.loadCurrentFromCloud = () => {
             if (!user || !db) return;
             const dateStr = document.getElementById('date-picker').value;
-            const sheetSelectorValue = document.getElementById('sheet-selector').value;
             if (!dateStr) return;
 
             if (unsubscribe) unsubscribe();
 
-            // 특정 시트명이 없더라도 날짜 기반으로 모든 시트를 검색하도록 콜렉션 전체 감시
-            const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'forgingData');
+            toggleLoading(true, "데이터 조회 중...");
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', dateStr);
             
-            unsubscribe = onSnapshot(colRef, (querySnapshot) => {
-                const results = [];
-                querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    if (data.date === dateStr) {
-                        results.push(data);
-                    }
-                });
-
-                if (results.length > 0) {
-                    // 선택된 시트가 있으면 해당 시트 우선, 없으면 첫 번째 결과 표시
-                    let targetData = results.find(r => r.sheet === sheetSelectorValue) || results[0];
+            unsubscribe = onSnapshot(docRef, (docSnap) => {
+                toggleLoading(false);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
                     
-                    // 시트 선택기가 비어있다면 발견된 시트들로 채워줌 (현장 작업자 편의)
+                    // 시트 정보 업데이트
                     const selector = document.getElementById('sheet-selector');
-                    if (selector.options.length <= 1) {
-                        selector.innerHTML = '';
-                        results.forEach(r => {
-                            const opt = document.createElement('option');
-                            opt.value = r.sheet; opt.innerText = r.sheet;
-                            selector.appendChild(opt);
-                        });
-                        selector.value = targetData.sheet;
-                    }
+                    selector.innerHTML = `<option value="${data.sheet}">${data.sheet}</option>`;
+                    selector.value = data.sheet;
 
-                    window.renderFromCloud(JSON.parse(targetData.procs), targetData.dayLead, targetData.nightLead);
-                    showToast("☁️ 배포된 데이터를 성공적으로 불러왔습니다.");
+                    window.renderFromCloud(JSON.parse(data.procs), data.dayLead, data.nightLead);
+                    showToast("☁️ 최신 배포 데이터를 성공적으로 불러왔습니다.");
                 } else if (window.workbookObj) {
-                    // 클라우드에 없지만 로컬 파일이 열려있는 경우 로컬 분석 실행
+                    // 클라우드에 없으면 로컬 파일 분석 시도
                     window.analyzeAndPrepareData(); 
                 } else {
                     const container = document.getElementById('process-list');
                     container.innerHTML = `<div class="text-center py-20 text-slate-400 font-bold text-xl bg-white rounded-3xl border-2 border-dashed">해당 날짜(${dateStr})에 배포된 정보가 없습니다.</div>`;
                 }
             }, (err) => {
+                toggleLoading(false);
                 console.error("데이터 수신 오류:", err);
                 showToast("데이터 연동 실패", "❌");
             });
