@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>태웅 TPMS - 고가독성 클라우드 뷰어</title>
+    <title>태웅 TPMS - 실시간 현장 공정 뷰어</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Firebase SDK -->
@@ -12,36 +12,18 @@
         import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // 클라우드 설정 변수
-        let app, auth, db, appId;
+        // Firebase 환경 설정 (Canvas 전역 변수 활용)
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'taewoong-tpms-v1';
+
         let user = null;
         let unsubscribe = null;
-        window.isCloudAvailable = false;
 
-        // Firebase 초기화 로직
-        const initFirebase = () => {
-            try {
-                // 환경 변수 주입 확인
-                const configStr = (typeof __firebase_config !== 'undefined' && __firebase_config) ? __firebase_config : null;
-                
-                if (configStr) {
-                    const firebaseConfig = JSON.parse(configStr);
-                    app = initializeApp(firebaseConfig);
-                    auth = getAuth(app);
-                    db = getFirestore(app);
-                    appId = typeof __app_id !== 'undefined' ? __app_id : 'taewoong-tpms-v1';
-                    window.isCloudAvailable = true;
-                    return true;
-                }
-                return false;
-            } catch (error) {
-                console.warn("Firebase Config Error:", error);
-                return false;
-            }
-        };
-
+        // 필수 규칙 3: 쿼리 전 인증 필수
         const initAuth = async () => {
-            if (!window.isCloudAvailable) return;
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
@@ -50,102 +32,114 @@
                 }
             } catch (error) {
                 console.error("인증 실패:", error);
+                showToast("네트워크 또는 서버 인증 오류", "❌");
             }
         };
 
-        // 앱 시작 시 실행
-        if (initFirebase()) {
-            onAuthStateChanged(auth, (currentUser) => {
-                user = currentUser;
-                if (user) {
-                    const syncBadge = document.getElementById('sync-status');
-                    if (syncBadge) {
-                        syncBadge.innerText = "Active Cloud";
-                        syncBadge.className = "hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/20 uppercase tracking-tight";
-                    }
-                    setTodayDateInput();
-                    window.loadCurrentFromCloud();
-                }
-            });
-            initAuth();
-        } else {
-            // 클라우드 설정이 없을 경우 오프라인 모드 표시
-            window.onload = () => {
-                const syncBadge = document.getElementById('sync-status');
-                if (syncBadge) {
-                    syncBadge.innerText = "OFFLINE MODE";
-                    syncBadge.className = "hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-700 text-slate-400 border border-slate-600 uppercase tracking-tight";
-                }
+        // 인증 상태 변화 감지 및 초기 조회 실행
+        onAuthStateChanged(auth, (currentUser) => {
+            user = currentUser;
+            if (user) {
+                updateCloudStatusBadge(true);
                 setTodayDateInput();
-            };
+                // 인증 완료 후 즉시 클라우드 데이터 확인
+                window.loadCurrentFromCloud();
+            } else {
+                updateCloudStatusBadge(false);
+            }
+        });
+
+        function updateCloudStatusBadge(isActive) {
+            const badge = document.getElementById('sync-status');
+            if (badge) {
+                if (isActive) {
+                    badge.innerText = "ONLINE SYNC ACTIVE";
+                    badge.className = "hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-emerald-900 text-emerald-400 border border-emerald-500/20 uppercase tracking-tight";
+                } else {
+                    badge.innerText = "OFFLINE MODE";
+                    badge.className = "hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-700 text-slate-400 border border-slate-600 uppercase tracking-tight";
+                }
+            }
         }
 
         function setTodayDateInput() {
             const now = new Date();
             const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
             const datePicker = document.getElementById('date-picker');
-            if (datePicker) datePicker.value = todayStr;
+            if (datePicker && !datePicker.value) datePicker.value = todayStr;
         }
 
+        // 전역 배포 함수
         window.saveToCloud = async () => {
-            if (!window.isCloudAvailable || !user) {
-                window.showToast("클라우드 설정이 없어 저장할 수 없습니다.", "⚠️");
+            if (!user) {
+                showToast("인증 진행 중입니다. 잠시 후 시도하세요.", "⏳");
                 return;
             }
             
             const processList = window.currentProcessList || [];
             if(processList.length === 0) {
-                window.showToast("먼저 파일을 업로드하여 데이터를 준비하세요.", "📁");
+                showToast("배포할 공정 데이터가 없습니다. 파일을 먼저 업로드하세요.", "📁");
                 return;
             }
 
             const sheetName = document.getElementById('sheet-selector').value;
             const dateStr = document.getElementById('date-picker').value;
-            if(!dateStr) return;
+            if(!dateStr || !sheetName) return;
 
-            toggleLoading(true, "서버에 동기화 중...");
+            toggleLoading(true, "클라우드 서버로 데이터를 동기화 중...");
             try {
+                // 필수 규칙 1: 정해진 경로 사용 (/artifacts/{appId}/public/data/{collectionName}/{docId})
                 const docId = `${sheetName}_${dateStr}`;
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId), {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId);
+                
+                await setDoc(docRef, {
                     date: dateStr,
                     sheet: sheetName,
                     procs: JSON.stringify(processList),
                     dayLead: window.currentDayLead || '미정',
                     nightLead: window.currentNightLead || '미정',
-                    updatedAt: new Date().toISOString()
+                    updatedAt: new Date().toISOString(),
+                    publisherId: user.uid
                 });
-                window.showToast("✅ 클라우드 배포 완료! 현장에서 즉시 확인 가능합니다.");
+                showToast("✅ 공정 데이터 배포 완료! 현장에 실시간 공유되었습니다.");
             } catch (e) {
-                console.error(e);
-                window.showToast("❌ 저장 권한이 없습니다.", "⚠️");
+                console.error("Firestore 저장 오류:", e);
+                showToast("❌ 저장 실패: 관리자 권한을 확인하세요.");
             } finally {
                 toggleLoading(false);
             }
         };
 
+        // 전역 조회 함수
         window.loadCurrentFromCloud = () => {
+            if (!user) return;
             const sheetName = document.getElementById('sheet-selector').value;
             const dateStr = document.getElementById('date-picker').value;
+            if(!dateStr || !sheetName) return;
+
+            if (unsubscribe) unsubscribe();
+
+            const docId = `${sheetName}_${dateStr}`;
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId);
             
-            // 클라우드가 설정되어 있다면 리얼타임 데이터 로드
-            if (window.isCloudAvailable && user && sheetName && dateStr) {
-                if (unsubscribe) unsubscribe();
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', `${sheetName}_${dateStr}`);
-                unsubscribe = onSnapshot(docRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
-                        window.renderFromCloud(JSON.parse(data.procs), data.dayLead, data.nightLead);
-                    } else if (window.workbookObj) {
-                        window.analyzeAndPrepareData();
-                    }
-                }, (err) => console.warn("Cloud Sync Error:", err));
-            } else if (window.workbookObj) {
-                // 클라우드가 없으면 로컬 데이터 분석만 수행
-                window.analyzeAndPrepareData();
-            } else {
-                document.getElementById('process-list').innerHTML = `<div class="text-center py-20 text-slate-400 font-bold text-xl bg-white rounded-3xl border-2 border-dashed tracking-tighter">데이터를 조회하려면 파일을 업로드하거나 [조회]를 누르세요.</div>`;
-            }
+            // 필수 규칙 1 & 2 적용: 단순 콜렉션/문서 쿼리
+            unsubscribe = onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    window.renderFromCloud(JSON.parse(data.procs), data.dayLead, data.nightLead);
+                    showToast("☁️ 최신 클라우드 데이터를 불러왔습니다.");
+                } else if (window.workbookObj) {
+                    window.analyzeAndPrepareData(); // 로컬 파일 데이터 분석으로 폴백
+                } else {
+                    document.getElementById('process-list').innerHTML = `<div class="text-center py-20 text-slate-400 font-bold text-xl bg-white rounded-3xl border-2 border-dashed tracking-tighter italic">클라우드에 등록된 작업이 없습니다.</div>`;
+                }
+            }, (err) => {
+                console.error("실시간 수신 에러:", err);
+                showToast("데이터 연동 실패", "❌");
+            });
         };
+
+        window.onload = () => initAuth();
     </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800;900&display=swap');
@@ -158,25 +152,25 @@
         .row-content { display: inline-flex; min-width: 1650px; background: white; border-bottom: 1px solid #e2e8f0; align-items: stretch; }
         .header-row { display: inline-flex; min-width: 1650px; background: #0f172a; color: white; position: sticky; top: 0; z-index: 30; }
 
-        /* 컬럼 너비 조정 */
-        .w-order { width: 140px; flex-shrink: 0; }
-        .w-qty { width: 50px; flex-shrink: 0; } 
+        /* 컬럼 너비 최적화 */
+        .w-order { width: 150px; flex-shrink: 0; }
+        .w-qty { width: 55px; flex-shrink: 0; } 
         .w-dim { width: 450px; flex-shrink: 0; }
-        .w-mat { width: 180px; flex-shrink: 0; } 
+        .w-mat { width: 170px; flex-shrink: 0; } 
         .w-weight { width: 150px; flex-shrink: 0; }
         .w-work { width: 450px; flex-shrink: 0; }
-        .w-remark { width: 230px; flex-shrink: 0; flex: 1; }
+        .w-remark { width: 250px; flex-shrink: 0; flex: 1; }
 
         .cell { @apply flex flex-col justify-center px-2 py-1.5 border-r border-slate-100; }
         .header-cell { @apply flex items-center justify-center px-2 py-2 font-black text-[11px] border-r border-slate-700 uppercase tracking-tighter; }
 
-        /* 폰트 밸런스 (오류 방지 및 가독성) */
-        .val-order { font-size: 1.05rem; font-weight: 800; }
-        .val-qty { font-size: 1.5rem; font-weight: 950; color: #2563eb; text-align: center; }
-        .val-dim { font-size: 1.25rem; font-weight: 800; line-height: 1.1; }
+        /* 폰트 밸런스 개선 */
+        .val-order { font-size: 1.1rem; font-weight: 800; }
+        .val-qty { font-size: 1.55rem; font-weight: 950; color: #2563eb; line-height: 1; text-align: center; }
+        .val-dim { font-size: 1.3rem; font-weight: 800; line-height: 1.1; }
         .val-sn-box { @apply mt-1 px-3 py-0.5 bg-white border border-blue-500 rounded-full font-black text-[10px] text-blue-700 shadow-sm inline-block; }
         .val-mat { font-size: 0.9rem; font-weight: 700; line-height: 1.2; }
-        .val-weight { font-size: 1.6rem; font-weight: 950; color: #ea580c; text-align: center; } 
+        .val-weight { font-size: 1.6rem; font-weight: 950; color: #ea580c; line-height: 1; white-space: nowrap; text-align: center; } 
         .val-work { font-size: 1.15rem; font-weight: 800; color: #064e3b; white-space: normal; line-height: 1.1; }
         .val-remark { font-size: 0.85rem; font-weight: 700; color: #92400e; white-space: normal; }
 
@@ -197,22 +191,27 @@
 <body class="pb-10">
 
     <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-md border-b-2 border-blue-600 px-4 py-1.5 flex justify-between items-center">
-        <h1 class="text-lg font-black italic tracking-tighter">TAEWOONG <span class="text-blue-500">TPMS</span></h1>
+        <h1 class="text-lg font-black italic tracking-tighter uppercase">Taewoong <span class="text-blue-500">TPMS</span></h1>
         <div class="flex items-center gap-3">
-            <span id="sync-status" class="hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase tracking-tight">System Ready</span>
+            <span id="sync-status" class="hidden sm:block text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase tracking-tight">Checking Auth...</span>
             <label for="excel-upload" class="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded text-[9px] font-black cursor-pointer shadow-md transition-all uppercase tracking-tight">파일 업로드</label>
             <input id="excel-upload" type="file" class="hidden" accept=".xls,.xlsx" onchange="handleExcelUpload(event)">
         </div>
     </header>
 
     <main class="container-full mt-2">
+        <!-- 초기 대기 화면 -->
         <div id="welcome-state" class="bg-white rounded-2xl p-8 text-center border border-blue-100 shadow-xl mt-4 max-w-xl mx-auto">
-            <div class="text-5xl mb-3">🛠️</div>
-            <h2 class="text-2xl font-black text-slate-800 mb-1 italic uppercase tracking-tighter">Forge Order Master</h2>
-            <p class="text-slate-400 text-sm font-bold tracking-tighter">계획서 파일을 업로드하여 오늘 공정을 확인하세요.</p>
+            <div class="text-5xl mb-3">📡</div>
+            <h2 class="text-2xl font-black text-slate-800 mb-1 italic uppercase tracking-tighter">Field Connection</h2>
+            <p class="text-slate-400 text-sm font-bold tracking-tighter leading-tight">
+                현장에서는 별도 파일 없이 **[조회]** 버튼을 클릭하세요.<br>
+                관리자는 파일을 업로드 후 **[배포하기]**를 눌러주세요.
+            </p>
         </div>
 
         <div id="main-ui" class="hidden space-y-2">
+            <!-- 조회 및 배포 컨트롤 -->
             <div class="ctrl-panel">
                 <div class="flex flex-wrap gap-2 items-end">
                     <div class="flex-1 min-w-[110px]">
@@ -225,7 +224,7 @@
                     </div>
                     <div class="flex gap-1">
                         <button onclick="changeDate(-1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition shadow-sm">이전</button>
-                        <button onclick="window.loadCurrentFromCloud()" class="bg-blue-600 text-white font-black px-8 py-1.5 rounded text-sm shadow-lg hover:bg-blue-700 active:scale-95 transition-all">조회</button>
+                        <button onclick="window.loadCurrentFromCloud()" class="bg-blue-600 text-white font-black px-6 py-1.5 rounded text-sm shadow-lg hover:bg-blue-700 active:scale-95 transition-all">조회</button>
                         <button onclick="changeDate(1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition shadow-sm">다음</button>
                     </div>
                     <div id="admin-actions" class="hidden">
@@ -234,23 +233,24 @@
                 </div>
             </div>
 
+            <!-- 공정 리스트 -->
             <div id="process-list" class="space-y-4 pb-20"></div>
         </div>
     </main>
 
-    <!-- 로딩 애니메이션 -->
+    <!-- 로딩 마스크 -->
     <div id="loading-overlay" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center z-[100]">
         <div class="bg-white px-8 py-6 rounded-2xl shadow-2xl flex flex-col items-center">
             <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
-            <p id="loading-text" class="font-black text-slate-800 text-base italic tracking-tight uppercase">Analysing...</p>
+            <p id="loading-text" class="font-black text-slate-800 text-base italic tracking-tight uppercase">Processing...</p>
         </div>
     </div>
 
-    <!-- 알림창(토스트) -->
+    <!-- 알림 시스템 -->
     <div id="custom-toast">
         <div class="bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-slate-700">
             <span id="toast-icon">✅</span>
-            <span id="toast-message" class="font-black text-xs tracking-tight">저장 완료</span>
+            <span id="toast-message" class="font-black text-xs tracking-tight">작업 성공</span>
         </div>
     </div>
 
@@ -264,7 +264,7 @@
         async function handleExcelUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
-            toggleLoading(true, "파일 데이터를 읽는 중...");
+            toggleLoading(true, "파일 데이터를 로드하는 중...");
 
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -297,7 +297,7 @@
                     processExcelData();
                 } catch (err) {
                     console.error(err);
-                    window.showToast("파일 처리 오류", "❌");
+                    window.showToast("엑셀 파일 분석 오류", "❌");
                 } finally {
                     toggleLoading(false);
                 }
