@@ -460,26 +460,36 @@
             window.currentSheetFullData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
             window.dateColumns = {};
             
-            // Excel 날짜 시리얼 번호를 JS YYYY-MM-DD 포맷으로 변환 (시간대 오차 방지)
+            // Excel 날짜 변환 보정 함수 (로컬 시간 기준)
             const excelDateToISO = (serial) => {
-                const date = new Date(Date.UTC(0, 0, serial - 1));
-                const y = date.getUTCFullYear();
-                const m = String(date.getUTCMonth() + 1).padStart(2, '0');
-                const d = String(date.getUTCDate()).padStart(2, '0');
+                const date = new Date(1899, 11, 30);
+                date.setDate(date.getDate() + serial);
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
                 return `${y}-${m}-${d}`;
             };
 
-            window.currentSheetFullData[0].forEach((cell, idx) => {
-                if (typeof cell === 'number' && cell > 40000) {
-                    const isoStr = excelDateToISO(cell);
-                    window.dateColumns[isoStr] = idx;
-                }
-            });
+            // 날짜가 포함된 행을 찾기 위해 시트 전체 스캔 (보통 첫 번째 또는 두 번째 줄)
+            let foundDateRow = false;
+            for (let r = 0; r < Math.min(window.currentSheetFullData.length, 5); r++) {
+                const row = window.currentSheetFullData[r];
+                if (!row) continue;
+                row.forEach((cell, idx) => {
+                    if (typeof cell === 'number' && cell > 40000 && cell < 60000) {
+                        const isoStr = excelDateToISO(cell);
+                        window.dateColumns[isoStr] = idx;
+                        foundDateRow = true;
+                    }
+                });
+                if (foundDateRow) break;
+            }
 
             // 오늘 날짜가 파일에 있는지 확인하고, 없으면 파일 내 첫 번째 날짜로 이동
             const availableDates = Object.keys(window.dateColumns).sort();
             const datePicker = document.getElementById('date-picker');
             if (availableDates.length > 0) {
+                // 현재 피커에 선택된 날짜가 파일에 없다면 파일 내 첫날로 변경
                 if (!window.dateColumns[datePicker.value]) {
                     datePicker.value = availableDates[0];
                 }
@@ -491,7 +501,11 @@
         window.analyzeAndPrepareData = () => {
             const dateStr = document.getElementById('date-picker').value;
             const data = window.extractDataByDate(dateStr);
-            if (!data) return;
+            if (!data) {
+                const container = document.getElementById('process-list');
+                container.innerHTML = `<div class="text-center py-16 text-slate-400 font-bold text-lg bg-white rounded-2xl border-2 border-dashed mx-2">해당 날짜(${dateStr})의 공정 정보가 파일에 없습니다.</div>`;
+                return;
+            }
             
             window.currentProcessList = data.procs;
             window.currentDayLead = data.dayLead;
