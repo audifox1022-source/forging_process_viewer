@@ -8,16 +8,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap');
-        body { font-family: 'Pretendard', sans-serif; background-color: #f8fafc; color: #1e293b; }
+        body { font-family: 'Pretendard', sans-serif; background-color: #f1f5f9; color: #1e293b; letter-spacing: -0.02em; }
         
-        /* 초고밀도 레이아웃 설정 */
-        .container-full { width: 100%; max-width: 100%; padding: 0 0.75rem; }
+        /* 레이아웃 최적화 */
+        .container-full { width: 100%; max-width: 100%; padding: 0 1rem; }
         
         /* 그리드 시스템: PC 2~3단, 모바일 1단 */
         .process-grid { 
             display: grid; 
             grid-template-columns: repeat(1, minmax(0, 1fr)); 
-            gap: 0.5rem; 
+            gap: 0.75rem; 
         }
         @media (min-width: 1024px) {
             .process-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -26,92 +26,101 @@
             .process-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
 
-        /* 슬림 카드 디자인 */
+        /* 세련된 카드 디자인 */
         .compact-card {
-            @apply bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex flex-col;
-            transition: all 0.2s ease;
+            @apply bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
         }
-        .compact-card:hover { @apply border-blue-400 shadow-md ring-1 ring-blue-100; }
+        .compact-card:hover { 
+            @apply border-blue-400 shadow-lg;
+            transform: translateY(-2px);
+        }
 
-        /* 라벨 및 값 스타일 */
-        .label-xs { font-size: 0.65rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: -0.01em; }
-        .val-sm { font-size: 0.85rem; font-weight: 600; color: #334155; }
-        .val-highlight { color: #2563eb; font-weight: 800; }
-
+        /* 텍스트 스타일 */
+        .label-xs { font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 0.125rem; display: block; }
+        .val-sm { font-size: 0.875rem; font-weight: 600; color: #0f172a; line-height: 1.25; }
+        
         /* 애니메이션 */
-        .fade-up { animation: fadeUp 0.3s ease-out; }
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-up { animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* 가로 스크롤바 최적화 */
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        /* 스크롤바 디자인 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
-<body class="pb-12">
+<body class="pb-16">
 
-    <!-- 슬림형 Header -->
-    <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-md border-b border-slate-800 px-4 py-2.5">
+    <!-- Header -->
+    <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-md border-b border-slate-800 px-6 py-3">
         <div class="flex justify-between items-center">
-            <div class="flex items-center gap-3">
-                <h1 class="text-base sm:text-lg font-black tracking-tighter italic text-blue-400">TPMS <span class="text-white font-bold not-italic">MONITOR</span></h1>
-                <div class="hidden md:flex items-center bg-slate-800 px-2.5 py-1 rounded-md border border-slate-700">
-                    <span id="current-sheet-name" class="text-[10px] font-bold text-slate-400">파일을 업로드하세요</span>
+            <div class="flex items-center gap-4">
+                <h1 class="text-xl font-black tracking-tighter italic">
+                    TAEWOONG <span class="text-blue-500">TPMS</span>
+                </h1>
+                <div class="hidden lg:flex items-center bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+                    <span id="current-sheet-name" class="text-[11px] font-bold text-slate-300">데이터를 업로드하세요</span>
                 </div>
             </div>
-            <div class="flex items-center gap-2">
-                <label for="excel-upload" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-md text-xs font-bold cursor-pointer transition-all shadow-lg flex items-center">
-                    파일 업로드
+            <div class="flex items-center gap-3">
+                <label for="excel-upload" class="bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all shadow-lg flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                    엑셀 파일 업로드
                 </label>
                 <input id="excel-upload" type="file" class="hidden" accept=".xls,.xlsx" onchange="handleExcelUpload(event)">
             </div>
         </div>
     </header>
 
-    <main class="container-full pt-3">
+    <main class="container-full pt-4">
         <!-- 초기 가이드 -->
-        <div id="welcome-state" class="bg-white rounded-2xl p-10 text-center border border-slate-200 shadow-sm mt-8 max-w-xl mx-auto">
-            <div class="text-4xl mb-4">⚙️</div>
-            <h2 class="text-xl font-bold text-slate-800 mb-2">공정 계획 실시간 뷰어</h2>
-            <p class="text-slate-500 text-sm">
-                엑셀 파일을 업로드하면 <b>주간(4~33행)</b> 및 <b>야간(35~64행)</b><br>
-                데이터가 고밀도 대시보드 형태로 즉시 구성됩니다.
+        <div id="welcome-state" class="bg-white rounded-[2rem] p-12 text-center border border-slate-200 shadow-sm mt-12 max-w-2xl mx-auto fade-up">
+            <div class="bg-blue-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                <span class="text-5xl">⚙️</span>
+            </div>
+            <h2 class="text-2xl font-extrabold text-slate-800 mb-3">태웅 단조공정 모니터링 시스템</h2>
+            <p class="text-slate-500 text-base leading-relaxed">
+                계획서 엑셀 파일을 업로드하여<br>
+                <b>주간(4~33행)</b> 및 <b>야간(35~64행)</b> 공정 정보를 실시간으로 확인하세요.
             </p>
         </div>
 
         <!-- 컨트롤 패널 -->
-        <div id="selection-panel" class="hidden space-y-3 mb-6">
-            <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200">
-                <div class="flex flex-wrap gap-4 items-end">
-                    <div class="flex-1 min-w-[150px]">
-                        <label class="label-xs mb-1 ml-1 text-blue-600">작업 시트 (월)</label>
+        <div id="selection-panel" class="hidden space-y-4 mb-8">
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-5 items-end">
+                    <div class="md:col-span-1">
+                        <label class="text-[11px] font-black text-blue-600 mb-1.5 block ml-1 uppercase tracking-wider">공정 시트 선택</label>
                         <select id="sheet-selector" onchange="loadSelectedSheet()" 
-                                class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-xs appearance-none cursor-pointer">
+                                class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm appearance-none cursor-pointer focus:ring-2 focus:ring-blue-500 transition-all">
                         </select>
                     </div>
-                    <div class="flex-1 min-w-[150px]">
-                        <label class="label-xs mb-1 ml-1 text-blue-600">작업 일자</label>
+                    <div class="md:col-span-1">
+                        <label class="text-[11px] font-black text-blue-600 mb-1.5 block ml-1 uppercase tracking-wider">작업 날짜</label>
                         <input type="date" id="date-picker" onchange="renderProcessList()" 
-                               class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-xs cursor-pointer">
+                               class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm cursor-pointer focus:ring-2 focus:ring-blue-500 transition-all">
                     </div>
-                    <div class="flex gap-1">
-                        <button onclick="changeDate(-1)" class="bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg font-bold text-xs border border-slate-200 transition">이전</button>
-                        <button onclick="changeDate(1)" class="bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg font-bold text-xs border border-slate-200 transition">다음</button>
+                    <div class="md:col-span-2 flex gap-3">
+                        <button onclick="changeDate(-1)" class="flex-1 bg-white hover:bg-slate-100 text-slate-700 font-bold py-3 rounded-xl transition-all active:scale-95 text-sm border border-slate-200 shadow-sm">이전 날짜</button>
+                        <button onclick="changeDate(1)" class="flex-1 bg-white hover:bg-slate-100 text-slate-700 font-bold py-3 rounded-xl transition-all active:scale-95 text-sm border border-slate-200 shadow-sm">다음 날짜</button>
                     </div>
                 </div>
             </div>
 
             <!-- 작업 목록 영역 -->
-            <div id="process-list" class="space-y-6">
+            <div id="process-list" class="space-y-10">
                 <!-- Shift sections -->
             </div>
         </div>
     </main>
 
     <!-- 로딩 스피너 -->
-    <div id="loading-overlay" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden flex items-center justify-center z-[100]">
-        <div class="bg-white px-8 py-6 rounded-2xl shadow-2xl flex flex-col items-center">
-            <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
-            <p class="font-bold text-slate-800 text-sm italic">데이터 정렬 중...</p>
+    <div id="loading-overlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md hidden flex items-center justify-center z-[100]">
+        <div class="bg-white px-12 py-10 rounded-[3rem] shadow-2xl flex flex-col items-center">
+            <div class="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p class="font-black text-slate-800 text-lg tracking-tight">엑셀 데이터를 정렬 중입니다...</p>
         </div>
     </div>
 
@@ -189,14 +198,13 @@
 
             const colIdx = dateColumns[selectedDate];
             if (colIdx === undefined) {
-                container.innerHTML = `<div class="text-center py-20 text-slate-400 font-bold">선택하신 날짜의 공정 정보가 시트에 없습니다.</div>`;
+                container.innerHTML = `<div class="text-center py-24 text-slate-400 font-black text-xl">지정된 날짜의 공정 정보가 없습니다.</div>`;
                 return;
             }
 
             let dayProcs = [];
             let nightProcs = [];
             
-            // 주간: 4~33행 (Index 3 to 32)
             for (let i = 3; i <= 32; i++) {
                 const row = currentSheetData[i];
                 if (row) {
@@ -205,7 +213,6 @@
                 }
             }
 
-            // 야간: 35~64행 (Index 34 to 63)
             for (let i = 34; i <= 63; i++) {
                 const row = currentSheetData[i];
                 if (row) {
@@ -214,8 +221,8 @@
                 }
             }
 
-            renderShiftSection("☀️ 주간 작업분 (Day Shift)", dayProcs, "blue", container);
-            renderShiftSection("🌙 야간 작업분 (Night Shift)", nightProcs, "slate", container);
+            renderShiftSection("주간 작업 리스트 (Day Shift)", dayProcs, "blue", container);
+            renderShiftSection("야간 작업 리스트 (Night Shift)", nightProcs, "slate", container);
         }
 
         function extractRowData(row, colIdx) {
@@ -241,14 +248,18 @@
             section.className = "fade-up";
             
             const headerColor = theme === 'blue' ? 'text-blue-700 border-blue-600' : 'text-slate-800 border-slate-700';
+            const icon = theme === 'blue' ? '☀️' : '🌙';
             
             section.innerHTML = `
-                <div class="flex items-center justify-between mb-2 pb-1 border-b-2 ${headerColor}">
-                    <h2 class="text-sm font-black flex items-center gap-1.5 uppercase tracking-tighter">${title}</h2>
-                    <span class="text-[10px] font-bold px-1.5 py-0.5 bg-slate-200 rounded text-slate-700">${items.length} 건</span>
+                <div class="flex items-center justify-between mb-4 pb-2 border-b-2 ${headerColor} px-2">
+                    <h2 class="text-lg font-black flex items-center gap-2">
+                        <span>${icon}</span>
+                        <span>${title}</span>
+                    </h2>
+                    <span class="text-[12px] font-black px-2.5 py-0.5 bg-slate-200 rounded-lg text-slate-700">${items.length} 건</span>
                 </div>
                 <div class="process-grid">
-                    ${items.length === 0 ? '<p class="text-xs text-slate-400 py-4 italic">작업 없음</p>' : ''}
+                    ${items.length === 0 ? '<p class="text-sm text-slate-400 py-10 italic text-center w-full">작업 정보가 없습니다.</p>' : ''}
                 </div>
             `;
 
@@ -262,52 +273,52 @@
             card.className = "compact-card";
             
             card.innerHTML = `
-                <div class="flex flex-col p-2.5 gap-2">
-                    <!-- 1열: 수주번호 & 담당 & 수량 -->
-                    <div class="flex justify-between items-center border-b border-slate-50 pb-1.5">
+                <div class="flex flex-col p-4 gap-3">
+                    <!-- 상단: 수주번호 & 담당 & 수량 -->
+                    <div class="flex justify-between items-center border-b border-slate-100 pb-3">
                         <div class="flex items-center gap-2">
-                            <span class="text-[11px] font-black px-1.5 py-0.5 bg-slate-900 text-white rounded">${item.id}</span>
-                            <span class="text-[10px] font-bold text-slate-400">${item.lead}</span>
+                            <span class="text-[12px] font-black px-2 py-0.5 bg-slate-900 text-white rounded-md tracking-tight shadow-sm">${item.id}</span>
+                            <span class="text-[11px] font-bold text-slate-400">${item.lead}</span>
                         </div>
-                        <div class="flex items-center gap-1">
-                            <span class="label-xs">Qty</span>
-                            <span class="text-xs font-black text-blue-600 tracking-tighter">${item.qty}EA</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-black text-blue-600 tracking-tight">${item.qty} <small class="text-[10px] text-slate-400">EA</small></span>
                         </div>
                     </div>
 
-                    <!-- 2열: 수주 치수 (가장 가독성이 좋아야 함) -->
-                    <div class="bg-slate-50 p-2 rounded-md border border-slate-100">
-                        <span class="label-xs text-blue-500 mb-0.5">수주 치수</span>
-                        <div class="text-[12px] font-extrabold text-slate-800 leading-tight">
+                    <!-- 메인: 수주 치수 (고대비 가독성 강조) -->
+                    <div class="bg-blue-50/50 p-3.5 rounded-2xl border border-blue-100/50">
+                        <span class="label-xs text-blue-500 font-extrabold mb-1">수주 치수 (Dimensions)</span>
+                        <div class="text-[14px] font-extrabold text-slate-900 leading-snug">
                             ${item.dim.toString().replace(/\n/g, ' ')}
                         </div>
                     </div>
 
-                    <!-- 3열: 그리드 (재질/중량/내용) - 고밀도 3열 배치 -->
-                    <div class="grid grid-cols-3 gap-1.5">
-                        <div class="bg-white border border-slate-100 p-1.5 rounded-lg flex flex-col justify-center">
+                    <!-- 정보 그리드: 3열 배치 -->
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="data-grid-item">
                             <span class="label-xs">수주재질</span>
-                            <span class="val-sm truncate text-[11px]">${item.matOrder}</span>
+                            <span class="val-sm truncate text-blue-800">${item.matOrder}</span>
                         </div>
-                        <div class="bg-white border border-slate-100 p-1.5 rounded-lg flex flex-col justify-center">
+                        <div class="data-grid-item">
                             <span class="label-xs">사내재질</span>
-                            <span class="val-sm truncate text-[11px]">${item.matIn}</span>
+                            <span class="val-sm truncate text-slate-600">${item.matIn}</span>
                         </div>
-                        <div class="bg-orange-50 border border-orange-100 p-1.5 rounded-lg flex flex-col justify-center">
+                        <div class="data-grid-item border-l-4 border-l-orange-500 bg-orange-50/50">
                             <span class="label-xs text-orange-600">투입중량</span>
-                            <span class="val-sm text-orange-700 text-[13px] font-black">${item.weight}T</span>
+                            <span class="val-sm text-orange-900 font-black text-[15px]">${item.weight}<small class="text-[10px] ml-0.5">T</small></span>
                         </div>
-                        <div class="col-span-3 bg-emerald-50 border border-emerald-100 px-2 py-1.5 rounded-lg">
-                            <span class="label-xs text-emerald-600">작업내용</span>
-                            <span class="val-sm text-emerald-900 text-[11px] block leading-tight font-bold">${item.work}</span>
+                        
+                        <div class="col-span-3 border-l-4 border-l-emerald-500 bg-emerald-50/50 p-2.5 rounded-xl">
+                            <span class="label-xs text-emerald-600 font-extrabold mb-0.5">작업 지시 내용</span>
+                            <span class="val-sm text-emerald-950 font-bold text-[12px] leading-snug block">${item.work}</span>
                         </div>
                     </div>
 
-                    <!-- 4열: 비고 (있을 때만 한 줄로 콤팩트하게) -->
+                    <!-- 비고 (Remarks) -->
                     ${item.remark && item.remark !== '-' ? `
-                    <div class="flex items-center gap-1 text-[10px] text-amber-700 font-medium bg-amber-50 px-2 py-1 rounded border border-amber-100">
-                        <span class="flex-shrink-0">📌</span>
-                        <span class="truncate">${item.remark}</span>
+                    <div class="flex items-start gap-2 text-[11px] font-semibold text-amber-900 bg-amber-50/80 px-3 py-2 rounded-xl border border-amber-100 shadow-inner">
+                        <span class="flex-shrink-0 text-amber-500 mt-0.5">📌</span>
+                        <span class="leading-tight">${item.remark}</span>
                     </div>
                     ` : ''}
                 </div>
