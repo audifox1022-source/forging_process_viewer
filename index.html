@@ -97,35 +97,67 @@
             if (datePicker && !datePicker.value) datePicker.value = todayStr;
         }
 
+        // 특정 날짜의 데이터를 엑셀에서 추출하는 공통 함수
+        window.extractDataByDate = (dateStr) => {
+            const colIdx = window.dateColumns[dateStr];
+            if (colIdx === undefined || !window.currentSheetFullData) return null;
+            
+            const procs = [];
+            for(let i=3; i<=63; i++) {
+                if(i === 33) continue;
+                const row = window.currentSheetFullData[i];
+                if(row && row[colIdx] && row[colIdx].toString().trim().length >= 4) {
+                    procs.push({
+                        rowIdx: i, id: row[colIdx],
+                        dim: (row[colIdx+1]||'').toString(), matOrder: (row[colIdx+2]||'').toString(),
+                        matIn: (row[colIdx+3]||'').toString(), qty: window.sanitizeNumeric(row[colIdx+4] || '1'),
+                        work: (row[colIdx+5]||'').toString(), remark: (row[colIdx+6]||'').toString(),
+                        weight: window.sanitizeNumeric(row[colIdx+7] || '')
+                    });
+                }
+            }
+            const dayLead = window.currentSheetFullData[33] ? (window.currentSheetFullData[33][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
+            const nightLead = window.currentSheetFullData[64] ? (window.currentSheetFullData[64][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
+            
+            return { procs, dayLead, nightLead };
+        };
+
+        // 파일 내 전체 데이터 클라우드 배포
         window.saveToCloud = async () => {
             if (!user || !db) {
                 showToast("인증 진행 중입니다. 잠시 후 시도하세요.", "⏳");
                 return;
             }
-            const processList = window.currentProcessList || [];
-            if (processList.length === 0) {
+            if (!window.currentSheetFullData || Object.keys(window.dateColumns).length === 0) {
                 showToast("배포할 데이터가 없습니다. 파일을 먼저 업로드하세요.", "📁");
                 return;
             }
-            const sheetName = document.getElementById('sheet-selector').value || "DefaultSheet";
-            const dateStr = document.getElementById('date-picker').value;
-            if (!dateStr) return;
 
-            toggleLoading(true, "클라우드 서버에 배포 중...");
+            const sheetName = document.getElementById('sheet-selector').value || "DefaultSheet";
+            const datesToDeploy = Object.keys(window.dateColumns);
+            
+            toggleLoading(true, `전체 데이터 배포 중 (0/${datesToDeploy.length})...`);
+            
             try {
-                const docId = dateStr; 
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId);
-                
-                await setDoc(docRef, {
-                    date: dateStr,
-                    sheet: sheetName,
-                    procs: JSON.stringify(processList),
-                    dayLead: window.currentDayLead || '미정',
-                    nightLead: window.currentNightLead || '미정',
-                    updatedAt: new Date().toISOString(),
-                    author: user.uid
-                });
-                showToast("✅ 배포 완료! 기존 데이터가 최신으로 교체되었습니다.");
+                let count = 0;
+                for (const dateStr of datesToDeploy) {
+                    const data = window.extractDataByDate(dateStr);
+                    if (data && data.procs.length > 0) {
+                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', dateStr);
+                        await setDoc(docRef, {
+                            date: dateStr,
+                            sheet: sheetName,
+                            procs: JSON.stringify(data.procs),
+                            dayLead: data.dayLead,
+                            nightLead: data.nightLead,
+                            updatedAt: new Date().toISOString(),
+                            author: user.uid
+                        });
+                        count++;
+                        document.getElementById('loading-text').innerText = `전체 데이터 배포 중 (${count}/${datesToDeploy.length})...`;
+                    }
+                }
+                showToast(`✅ 배포 완료! 총 ${count}일분의 데이터가 저장되었습니다.`);
             } catch (e) {
                 console.error(e);
                 showToast("❌ 저장 권한 오류", "⚠️");
@@ -259,7 +291,7 @@
                         <button onclick="changeDate(1)" class="bg-slate-200 text-slate-700 font-black px-2 py-1 rounded text-[10px]">다음</button>
                     </div>
                     <div id="admin-actions">
-                        <button onclick="window.saveToCloud()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-1.5 rounded text-[9px] shadow-sm flex items-center gap-1">☁️ 배포</button>
+                        <button onclick="window.saveToCloud()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-1.5 rounded text-[9px] shadow-sm flex items-center gap-1" title="파일 내 모든 공정 배포">☁️ 전체 배포</button>
                     </div>
                 </div>
             </div>
@@ -286,7 +318,7 @@
     <div id="loading-overlay" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center z-[100]">
         <div class="bg-white px-6 py-4 rounded-xl shadow-2xl flex flex-col items-center">
             <div class="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mb-2"></div>
-            <p id="loading-text" class="font-black text-slate-800 text-xs italic tracking-tight uppercase">Processing...</p>
+            <p id="loading-text" class="font-black text-slate-800 text-xs italic tracking-tight uppercase text-center leading-tight">Processing...</p>
         </div>
     </div>
 
@@ -298,17 +330,17 @@
     </div>
 
     <script>
-        let currentSheetFullData = null;
+        window.currentSheetFullData = null;
+        window.dateColumns = {};
         window.currentProcessList = [];
         window.currentDayLead = '미정';
         window.currentNightLead = '미정';
-        let dateColumns = {};
 
-        function sanitizeNumeric(val) {
+        window.sanitizeNumeric = (val) => {
             if (val === undefined || val === null) return '';
             const str = val.toString();
             return str.replace(/(\d+)[rR]/g, '$1').trim();
-        }
+        };
 
         function getShareUrl() {
             const dateStr = document.getElementById('date-picker').value;
@@ -325,9 +357,7 @@
             try {
                 document.execCommand('copy');
                 showToast("링크가 복사되었습니다.", "🔗");
-            } catch (err) {
-                console.error('Copy failed', err);
-            }
+            } catch (err) { console.error('Copy failed', err); }
             document.body.removeChild(textArea);
         };
 
@@ -339,23 +369,15 @@
                 url: getShareUrl()
             };
             if (navigator.share) {
-                try {
-                    await navigator.share(shareData);
-                } catch (err) { console.log('Share failed'); }
-            } else {
-                window.copyShareLink();
-            }
+                try { await navigator.share(shareData); } catch (err) { console.log('Share failed'); }
+            } else { window.copyShareLink(); }
         };
 
         window.shareWebsite = () => {
+            const url = window.location.origin + window.location.pathname;
             if (navigator.share) {
-                navigator.share({
-                    title: '태웅 TPMS',
-                    text: '태웅 실시간 현장 공정 뷰어',
-                    url: window.location.origin + window.location.pathname
-                });
+                navigator.share({ title: '태웅 TPMS', text: '태웅 실시간 현장 공정 뷰어', url });
             } else {
-                const url = window.location.origin + window.location.pathname;
                 const textArea = document.createElement("textarea");
                 textArea.value = url;
                 document.body.appendChild(textArea);
@@ -424,15 +446,15 @@
             const sheetName = document.getElementById('sheet-selector').value;
             if (!sheetName || !window.workbookObj) return;
             const worksheet = window.workbookObj.Sheets[sheetName];
-            currentSheetFullData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-            dateColumns = {};
-            currentSheetFullData[0].forEach((cell, idx) => {
+            window.currentSheetFullData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            window.dateColumns = {};
+            window.currentSheetFullData[0].forEach((cell, idx) => {
                 if (typeof cell === 'number' && cell > 40000) {
                     const d = new Date((cell - 25569) * 86400 * 1000);
                     const y = d.getFullYear();
                     const m = String(d.getMonth() + 1).padStart(2, '0');
                     const day = String(d.getDate()).padStart(2, '0');
-                    dateColumns[`${y}-${m}-${day}`] = idx;
+                    window.dateColumns[`${y}-${m}-${day}`] = idx;
                 }
             });
             window.analyzeAndPrepareData();
@@ -440,24 +462,12 @@
 
         window.analyzeAndPrepareData = () => {
             const dateStr = document.getElementById('date-picker').value;
-            const colIdx = dateColumns[dateStr];
-            if (colIdx === undefined || !currentSheetFullData) return;
-            window.currentProcessList = [];
-            for(let i=3; i<=63; i++) {
-                if(i === 33) continue;
-                const row = currentSheetFullData[i];
-                if(row && row[colIdx] && row[colIdx].toString().trim().length >= 4) {
-                    window.currentProcessList.push({
-                        rowIdx: i, id: row[colIdx],
-                        dim: (row[colIdx+1]||'').toString(), matOrder: (row[colIdx+2]||'').toString(),
-                        matIn: (row[colIdx+3]||'').toString(), qty: sanitizeNumeric(row[colIdx+4] || '1'),
-                        work: (row[colIdx+5]||'').toString(), remark: (row[colIdx+6]||'').toString(),
-                        weight: sanitizeNumeric(row[colIdx+7] || '')
-                    });
-                }
-            }
-            window.currentDayLead = currentSheetFullData[33] ? (currentSheetFullData[33][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
-            window.currentNightLead = currentSheetFullData[64] ? (currentSheetFullData[64][colIdx+8]||'미정').toString().replace(/주간|야간|\//g,'').trim() : '미정';
+            const data = window.extractDataByDate(dateStr);
+            if (!data) return;
+            
+            window.currentProcessList = data.procs;
+            window.currentDayLead = data.dayLead;
+            window.currentNightLead = data.nightLead;
             window.renderFromCloud(window.currentProcessList, window.currentDayLead, window.currentNightLead);
         }
 
