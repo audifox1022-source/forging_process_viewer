@@ -12,16 +12,20 @@
         import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-       const firebaseConfig = {
-  apiKey: "AIzaSyCB43xipDeVyZVu4sAdtF0lGFIzzCfrsIc",
-  authDomain: "forging-spec-manager.firebaseapp.com",
-  projectId: "forging-spec-manager",
-  storageBucket: "forging-spec-manager.firebasestorage.app",
-  messagingSenderId: "299326184664",
-  appId: "1:299326184664:web:eb0b8b0751527869504bad",
-  measurementId: "G-KYJ5XFCNWL"
-};
-        // 환경 변수가 없을 경우 사용자가 직접 입력한 값을 우선 사용합니다.
+        // ==========================================================
+        // === FIREBASE CONFIG (제공해주신 실전 설정값 적용) ===
+        // ==========================================================
+        const manualConfig = {
+            apiKey: "AIzaSyCB43xipDeVyZVu4sAdtF0lGFIzzCfrsIc",
+            authDomain: "forging-spec-manager.firebaseapp.com",
+            projectId: "forging-spec-manager",
+            storageBucket: "forging-spec-manager.firebasestorage.app",
+            messagingSenderId: "299326184664",
+            appId: "1:299326184664:web:eb0b8b0751527869504bad",
+            measurementId: "G-KYJ5XFCNWL"
+        };
+
+        // 환경 변수가 있으면 우선 사용하고, 없으면 제공된 manualConfig를 사용합니다.
         let config = null;
         try {
             const envConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
@@ -30,17 +34,7 @@
             }
         } catch (e) { console.warn("Environment Config Error"); }
 
-        // 여기에 직접 Firebase Console에서 복사한 설정을 넣으셔도 됩니다.
-        const manualConfig = {
-            apiKey: "",
-            authDomain: "",
-            projectId: "",
-            storageBucket: "",
-            messagingSenderId: "",
-            appId: ""
-        };
-
-        const firebaseConfig = config || (manualConfig.apiKey ? manualConfig : null);
+        const firebaseConfig = config || manualConfig;
         // ==========================================================
 
         let user = null;
@@ -61,7 +55,7 @@
         }
 
         const initAuth = async () => {
-            if (!firebaseConfig) {
+            if (!firebaseConfig.apiKey) {
                 updateStatus("CONFIG MISSING", "error");
                 return;
             }
@@ -104,22 +98,21 @@
 
         window.saveToCloud = async () => {
             if (!user || !db) {
-                showToast("클라우드가 연결되지 않았습니다.", "⏳");
+                showToast("클라우드 서버에 연결 중입니다. 잠시만 기다려주세요.", "⏳");
                 return;
             }
             const processList = window.currentProcessList || [];
             if(processList.length === 0) {
-                showToast("배포할 데이터가 없습니다.", "📁");
+                showToast("배포할 데이터가 없습니다. 먼저 엑셀 파일을 업로드하세요.", "📁");
                 return;
             }
             const sheetName = document.getElementById('sheet-selector').value;
             const dateStr = document.getElementById('date-picker').value;
             if(!dateStr || !sheetName) return;
 
-            toggleLoading(true, "서버에 전송 중...");
+            toggleLoading(true, "클라우드 서버로 데이터를 전송 중...");
             try {
                 const docId = `${sheetName}_${dateStr}`;
-                // 필수 규칙 1 준수: /artifacts/{appId}/public/data/{collectionName}/{docId}
                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'forgingData', docId);
                 await setDoc(docRef, {
                     date: dateStr,
@@ -129,10 +122,10 @@
                     nightLead: window.currentNightLead || '미정',
                     updatedAt: new Date().toISOString()
                 });
-                showToast("✅ 배포 완료! 현장에서 실시간 확인 가능합니다.");
+                showToast("✅ 배포 완료! 현장 작업자가 즉시 확인할 수 있습니다.");
             } catch (e) {
                 console.error(e);
-                showToast("❌ 저장 권한 오류", "⚠️");
+                showToast("❌ 저장 권한 오류: Firestore 규칙을 확인하세요.", "⚠️");
             } finally {
                 toggleLoading(false);
             }
@@ -152,11 +145,11 @@
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     window.renderFromCloud(JSON.parse(data.procs), data.dayLead, data.nightLead);
-                    showToast("☁️ 최신 데이터를 수신했습니다.");
+                    showToast("☁️ 클라우드에서 최신 공정 데이터를 동기화했습니다.");
                 } else if (window.workbookObj) {
                     window.analyzeAndPrepareData(); 
                 } else {
-                    document.getElementById('process-list').innerHTML = `<div class="text-center py-20 text-slate-400 font-bold text-xl bg-white rounded-3xl border-2 border-dashed">배포된 데이터가 없습니다.</div>`;
+                    document.getElementById('process-list').innerHTML = `<div class="text-center py-20 text-slate-400 font-bold text-xl bg-white rounded-3xl border-2 border-dashed">해당 날짜에 배포된 공정 계획이 없습니다.</div>`;
                 }
             }, (err) => console.warn("Snapshot error", err));
         };
@@ -213,10 +206,10 @@
     <main class="container-full mt-2">
         <div id="welcome-state" class="bg-white rounded-2xl p-8 text-center border border-blue-100 shadow-xl mt-4 max-w-xl mx-auto">
             <div class="text-5xl mb-3">📡</div>
-            <h2 class="text-2xl font-black text-slate-800 mb-1 italic uppercase tracking-tighter">Connection Hub</h2>
+            <h2 class="text-2xl font-black text-slate-800 mb-1 italic uppercase tracking-tighter">Connection Ready</h2>
             <p class="text-slate-400 text-sm font-bold tracking-tighter leading-tight">
-                클라우드 설정을 완료하면 현장에 데이터가 동기화됩니다.<br>
-                관리자는 파일을 업로드 후 **[배포하기]**를 눌러주세요.
+                실전 클라우드 설정이 완료되었습니다.<br>
+                현장에서는 별도의 업로드 없이 <b>[조회]</b> 버튼만 누르면 됩니다.
             </p>
         </div>
 
@@ -232,9 +225,9 @@
                         <select id="sheet-selector" class="w-full p-1 bg-slate-50 border border-slate-200 rounded font-black text-base focus:border-blue-500 outline-none shadow-inner"></select>
                     </div>
                     <div class="flex gap-1">
-                        <button onclick="changeDate(-1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition">이전</button>
+                        <button onclick="changeDate(-1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition shadow-sm">이전</button>
                         <button onclick="window.loadCurrentFromCloud()" class="bg-blue-600 text-white font-black px-6 py-1.5 rounded text-sm shadow-lg hover:bg-blue-700 active:scale-95 transition-all">조회</button>
-                        <button onclick="changeDate(1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition">다음</button>
+                        <button onclick="changeDate(1)" class="bg-slate-200 text-slate-700 font-black px-3 py-1.5 rounded text-[10px] hover:bg-slate-300 transition shadow-sm">다음</button>
                     </div>
                     <div id="admin-actions" class="hidden">
                         <button onclick="window.saveToCloud()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-1.5 rounded text-[10px] shadow-sm transition-all flex items-center gap-1">☁️ 배포하기</button>
@@ -266,18 +259,16 @@
         window.currentNightLead = '미정';
         let dateColumns = {};
 
-        // r 문자 제거를 위한 정밀 정제 함수
         function sanitizeNumeric(val) {
             if (val === undefined || val === null) return '';
             const str = val.toString();
-            // 숫자 뒤에 붙은 r 제거
             return str.replace(/(\d+)[rR]/g, '$1').trim();
         }
 
         async function handleExcelUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
-            toggleLoading(true, "파일 분석 중...");
+            toggleLoading(true, "파일 데이터 분석 중...");
 
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -303,7 +294,7 @@
                     processExcelData();
                 } catch (err) {
                     console.error(err);
-                    window.showToast("파일 분석 오류", "❌");
+                    window.showToast("파일 분석 중 오류가 발생했습니다.", "❌");
                 } finally {
                     toggleLoading(false);
                 }
@@ -333,7 +324,7 @@
                 const targetDate = availableDates.includes(todayStr) ? todayStr : availableDates[0];
                 document.getElementById('date-picker').value = targetDate;
                 window.analyzeAndPrepareData();
-                window.showToast("📁 파일을 로드했습니다.");
+                window.showToast("📁 파일을 성공적으로 분석하여 지시서를 생성했습니다.");
             }
         }
 
