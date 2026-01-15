@@ -201,7 +201,7 @@
         .w-order { width: 95px; flex-shrink: 0; }
         .w-qty { width: 40px; flex-shrink: 0; } 
         .w-dim { width: 300px; flex-shrink: 0; }
-        .w-mat { width: 145px; flex-shrink: 0; } 
+        .w-mat { width: 155px; flex-shrink: 0; } /* 명칭 변경에 따른 너비 확장 */
         .w-weight { width: 85px; flex-shrink: 0; }
         .w-work { width: 380px; flex-shrink: 0; }
         .w-remark { width: 220px; flex-shrink: 0; flex: 1; }
@@ -487,7 +487,7 @@
                         <div class="header-cell w-order">수주번호</div>
                         <div class="header-cell w-qty">수량</div>
                         <div class="header-cell w-dim">수주치수 / SN</div>
-                        <div class="header-cell w-mat">재질</div>
+                        <div class="header-cell w-mat">수주재질/사내재질</div>
                         <div class="header-cell w-weight">투입중량</div>
                         <div class="header-cell w-work">작업 상세</div>
                         <div class="header-cell w-remark">비고</div>
@@ -513,8 +513,8 @@
                     </div>
                     <div class="cell w-mat bg-white">
                         <div class="flex flex-col val-mat">
-                            <span class="border-b border-slate-50 mb-0.5 text-blue-600 uppercase leading-none font-black">O: ${p.matOrder}</span>
-                            <span class="text-slate-500 uppercase leading-none font-black">G: ${p.matIn}</span>
+                            <span class="border-b border-slate-50 mb-0.5 text-blue-600 uppercase leading-none font-black">${p.matOrder}</span>
+                            <span class="text-slate-500 uppercase leading-none font-black">${p.matIn}</span>
                         </div>
                     </div>
                     <div class="cell w-weight bg-orange-50/50 border-x border-orange-100 text-center"><span class="val-weight">${p.weight}</span></div>
