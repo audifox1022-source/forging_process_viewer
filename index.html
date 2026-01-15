@@ -10,7 +10,7 @@
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot, getDocs, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         // Firebase 설정
@@ -99,7 +99,15 @@
             document.getElementById('welcome-state').classList.remove('hidden');
         };
 
-        window.saveToCloud = async () => {
+        // 수주건의 고유 키 추출 (수주번호 + S/N)
+        const getUniqueKey = (p) => {
+            const snMatch = p.dim.match(/S\/N\s*[:：]?\s*(\d+)/i);
+            const sn = snMatch ? snMatch[1] : "000";
+            return `${p.id}_${sn}`;
+        };
+
+        // 데이터 배포 실행 (중복 확인 후 실제 저장)
+        window.saveToCloud = async (force = false) => {
             if (!user || !db) { showToast("인증 대기 중", "⏳"); return; }
             if (!window.currentSheetFullData || Object.keys(window.dateColumns).length === 0) {
                 showToast("데이터 없음", "📁"); return;
@@ -109,9 +117,42 @@
             const sheetName = document.getElementById('sheet-selector').value;
             const datesToDeploy = Object.keys(window.dateColumns);
             
-            toggleLoading(true, `배포 중...`);
-            
+            toggleLoading(true, `데이터 검사 중...`);
+
             try {
+                // 1. 중복 검사 로직 (강제 배포가 아닐 경우에만 실행)
+                if (!force) {
+                    const duplicates = [];
+                    for (const dateStr of datesToDeploy) {
+                        const data = window.extractDataByDate(dateStr);
+                        if (!data) continue;
+                        
+                        for (const p of data.procs) {
+                            const key = getUniqueKey(p);
+                            const regRef = doc(db, 'artifacts', appId, 'public', 'data', 'plannedRegistry', key);
+                            const regSnap = await getDoc(regRef);
+                            
+                            if (regSnap.exists()) {
+                                const prevDate = regSnap.data().plannedDate;
+                                // 같은 날짜에 재배포하는 경우는 중복으로 보지 않음
+                                if (prevDate !== dateStr) {
+                                    duplicates.push({ id: p.id, sn: key.split('_')[1], prevDate, currentDate: dateStr });
+                                }
+                            }
+                        }
+                    }
+
+                    if (duplicates.length > 0) {
+                        toggleLoading(false);
+                        window.showDuplicateWarning(duplicates);
+                        return;
+                    }
+                }
+
+                // 2. 실제 배포 진행
+                toggleLoading(true, `배포 중...`);
+                const batch = writeBatch(db); // 레지스트리 업데이트용 배치
+
                 for (const dateStr of datesToDeploy) {
                     const data = window.extractDataByDate(dateStr);
                     if (data && data.procs.length > 0) {
@@ -122,17 +163,43 @@
                             dayLead: data.dayLead, nightLead: data.nightLead,
                             updatedAt: new Date().toISOString()
                         });
+
+                        // 레지스트리에 계획 등록
+                        for (const p of data.procs) {
+                            const key = getUniqueKey(p);
+                            const regRef = doc(db, 'artifacts', appId, 'public', 'data', 'plannedRegistry', key);
+                            await setDoc(regRef, { plannedDate: dateStr, updatedAt: new Date().toISOString() });
+                        }
                     }
                 }
                 const configRef = doc(db, 'artifacts', appId, 'public', 'data', 'config', 'status');
                 await setDoc(configRef, { publishedUntil: currentPickerDate, updatedAt: new Date().toISOString() });
 
-                showToast(`✅ 배포 완료! 현장 공개: ${currentPickerDate}까지`);
+                showToast(`✅ 배포 완료!`);
+                window.closeDuplicateWarning();
             } catch (e) {
+                console.error(e);
                 showToast("저장 오류", "⚠️");
             } finally {
                 toggleLoading(false);
             }
+        };
+
+        // 중복 경고 모달 표시
+        window.showDuplicateWarning = (duplicates) => {
+            const modal = document.getElementById('duplicate-modal');
+            const list = document.getElementById('duplicate-list');
+            list.innerHTML = duplicates.map(d => `
+                <div class="flex justify-between items-center bg-red-50 p-2 rounded border border-red-100 text-[10px]">
+                    <span class="font-black text-red-700">${d.id} (S/N:${d.sn})</span>
+                    <span class="text-slate-500">기존: ${d.prevDate} → 신규: ${d.currentDate}</span>
+                </div>
+            `).join('');
+            modal.style.display = 'flex';
+        };
+
+        window.closeDuplicateWarning = () => {
+            document.getElementById('duplicate-modal').style.display = 'none';
         };
 
         window.loadCurrentFromCloud = async () => {
@@ -238,10 +305,9 @@
             #landscape-warning { display: flex; }
         }
 
-        #help-modal-container { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-blur: 5px; z-index: 300; display: none; align-items: center; justify-content: center; padding: 16px; }
-        .help-card { background: white; border-radius: 1.5rem; width: 100%; max-width: 400px; max-height: 85vh; overflow-y: auto; position: relative; padding-bottom: 2rem; }
+        #help-modal-container, #duplicate-modal { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-blur: 5px; z-index: 300; display: none; align-items: center; justify-content: center; padding: 16px; }
+        .help-card, .warning-card { background: white; border-radius: 1.5rem; width: 100%; max-width: 400px; max-height: 85vh; overflow-y: auto; position: relative; padding-bottom: 2rem; }
 
-        /* 날짜 및 버튼 가독성 강화 스타일 */
         .date-display-box { @apply bg-blue-50 border border-blue-100 rounded-xl py-3 mb-2 text-center shadow-inner; }
         .big-action-btn { @apply h-14 flex items-center justify-center font-black text-lg transition-all active:scale-95 shadow-md; }
     </style>
@@ -327,6 +393,25 @@
         </div>
     </main>
 
+    <!-- 중복 계획 경고 모달 -->
+    <div id="duplicate-modal" onclick="window.closeDuplicateWarning()">
+        <div class="warning-card animate-in zoom-in duration-200" onclick="event.stopPropagation()">
+            <div class="bg-red-600 text-white p-4 rounded-t-1.5xl flex justify-between items-center">
+                <h3 class="font-black italic uppercase text-sm">⚠️ 중복 계획 감지됨</h3>
+            </div>
+            <div class="p-5">
+                <p class="text-[11px] font-bold text-slate-600 mb-4 leading-relaxed">아래 수주건들은 이미 다른 날짜에 계획된 이력이 있습니다.<br>실수로 중복 입력된 것이 아닌지 확인해 주세요.</p>
+                <div id="duplicate-list" class="space-y-2 max-h-[30vh] overflow-y-auto mb-6 p-1">
+                    <!-- 중복 리스트 삽입 -->
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="window.closeDuplicateWarning()" class="bg-slate-200 text-slate-800 font-black py-3 rounded-xl uppercase text-[10px]">취소 및 수정</button>
+                    <button onclick="window.saveToCloud(true)" class="bg-red-600 text-white font-black py-3 rounded-xl uppercase text-[10px] shadow-lg">무시하고 배포</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 사용자 도움말 모달 -->
     <div id="help-modal-container" onclick="toggleHelpModal()">
         <div class="help-card animate-in slide-in-from-bottom duration-300" onclick="event.stopPropagation()">
@@ -353,7 +438,7 @@
                     <div class="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shrink-0 font-black text-xs">03</div>
                     <div>
                         <h4 class="font-black text-slate-800 text-xs mb-1">관리자: 데이터 배포</h4>
-                        <p class="text-slate-500 text-[10px] leading-relaxed">엑셀 [업로드] 후 [☁️ 배포]를 누르세요. 현재 보이는 날짜까지만 현장에 공개됩니다.</p>
+                        <p class="text-slate-500 text-[10px] leading-relaxed">엑셀 [업로드] 후 [☁️ 배포]를 누르세요. **이미 다른 날짜에 계획된 수주건이 있다면 시스템이 자동으로 경고 메시지를 띄워줍니다.**</p>
                     </div>
                 </div>
             </div>
@@ -367,7 +452,7 @@
     <div id="loading-overlay" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center z-[100]">
         <div class="bg-white px-5 py-3 rounded-lg shadow-xl flex flex-col items-center">
             <div class="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-1"></div>
-            <p id="loading-text" class="font-black text-slate-800 text-[10px] uppercase">Processing...</p>
+            <p id="loading-text" class="font-black text-slate-800 text-[10px] uppercase text-center leading-tight">Processing...</p>
         </div>
     </div>
 
