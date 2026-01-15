@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>태웅 TPMS - 15,000T 단조 공정 뷰어</title>
+    <title>태웅 Forging Process Viewer - 15,000T 단조 공정 뷰어</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -255,12 +255,12 @@
         </div>
         <h2 class="text-xl font-black mb-2 italic uppercase">Rotate Device</h2>
         <p class="text-slate-400 text-sm font-bold leading-relaxed">현장 가독성을 극대화하기 위해<br><span class="text-blue-400">기기를 가로(Landscape)로 회전</span>해주세요.</p>
-        <div class="mt-8 px-4 py-2 border border-slate-700 rounded-lg text-[10px] text-slate-500 font-mono uppercase tracking-widest">Taewoong TPMS System</div>
+        <div class="mt-8 px-4 py-2 border border-slate-700 rounded-lg text-[10px] text-slate-500 font-mono uppercase tracking-widest">Taewoong Forging Process Viewer System</div>
     </div>
 
     <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-sm border-b border-blue-600 px-2 py-1 flex justify-between items-center">
         <div class="flex flex-col">
-            <h1 class="text-sm font-black italic tracking-tighter uppercase leading-none">Taewoong <span class="text-blue-500">TPMS (15,000T)</span></h1>
+            <h1 class="text-sm font-black italic tracking-tighter uppercase leading-none">Taewoong <span class="text-blue-500">Forging Process Viewer (15,000T)</span></h1>
             <span class="text-[7px] text-slate-400 font-bold uppercase tracking-widest mt-1">Mobile & Tablet Optimized</span>
         </div>
         <div class="flex items-center gap-1.5">
@@ -331,7 +331,7 @@
     <div id="help-modal-container" onclick="toggleHelpModal()">
         <div class="help-card animate-in slide-in-from-bottom duration-300" onclick="event.stopPropagation()">
             <div class="sticky top-0 bg-slate-900 text-white p-4 rounded-t-1.5xl flex justify-between items-center">
-                <h3 class="font-black italic tracking-tighter uppercase text-sm">TPMS 사용 설명서</h3>
+                <h3 class="font-black italic tracking-tighter uppercase text-sm">Forging Process Viewer 사용 설명서</h3>
                 <button onclick="toggleHelpModal()" class="text-slate-400 hover:text-white">닫기 ✕</button>
             </div>
             <div class="p-5 space-y-6">
@@ -409,7 +409,10 @@
         const excelDateToISO = (serial) => {
             const date = new Date(1899, 11, 30);
             date.setDate(date.getDate() + serial);
-            return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
         };
 
         window.extractDataByDate = (dateStr) => {
@@ -486,6 +489,7 @@
             const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
             if (window.dateColumns[todayStr]) datePicker.value = todayStr;
             else if (Object.keys(window.dateColumns).length > 0) datePicker.value = Object.keys(window.dateColumns).sort()[0];
+            
             document.getElementById('welcome-state').classList.add('hidden');
             window.updateDateDisplay();
             window.analyzeAndPrepareData();
@@ -548,8 +552,8 @@
                         <span class="val-dim leading-none">${dimMain}</span>
                         ${snTag ? `<div class="val-sn-box"><span class="val-sn">${snTag}</span></div>` : ''}
                     </div>
-                    <div class="cell w-mat bg-white">
-                        <div class="flex flex-col val-mat text-center">
+                    <div class="cell w-mat bg-white text-center">
+                        <div class="flex flex-col val-mat">
                             <span class="border-b border-slate-50 mb-0.5 text-blue-600 uppercase leading-none font-black">${p.matOrder}</span>
                             <span class="text-slate-500 uppercase leading-none font-black">${p.matIn}</span>
                         </div>
@@ -580,7 +584,7 @@
 
         window.shareWebsite = () => {
             const url = window.location.origin + window.location.pathname;
-            if (navigator.share) navigator.share({ title: '태웅 TPMS', url });
+            if (navigator.share) navigator.share({ title: '태웅 Forging Process Viewer', url });
             else {
                 const t = document.createElement("textarea"); t.value = url; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t);
                 showToast("주소 복사됨");
